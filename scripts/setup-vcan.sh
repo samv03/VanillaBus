@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Create a virtual CAN interface for later VanillaBus SocketCAN work.
-# T1 does not open this interface from the app.
+# Create a virtual CAN interface and set it UP.
+# VanillaBus T4 bus.open binds this iface only; it never runs this script
+# and never `ip link set up` from Electron or the engine. Requires root /
+# CAP_NET_ADMIN (sudo or a later pkexec helper — not the desktop process).
 
 set -euo pipefail
 
@@ -29,4 +31,5 @@ fi
 
 ip link set up "$IFACE"
 ip link show "$IFACE"
-echo "Virtual CAN interface ${IFACE} is up. The T1 UI does not use it yet."
+echo "Virtual CAN interface ${IFACE} is up. VanillaBus can bus.list / bus.open it now."
+echo "Do not start Electron as root. See docs/privileges.md."

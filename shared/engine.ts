@@ -39,9 +39,46 @@ export type EngineConnectionEvent = {
 
 export type Unsubscribe = () => void
 
+export type EngineErrorPayload = {
+  readonly code: string
+  readonly message: string
+}
+
+export type BusInterfaceState = 'up' | 'down'
+
+/** SocketCAN/vcan iface from engine bus.list. */
+export type BusInterface = {
+  readonly name: string
+  readonly kind: string
+  readonly state: BusInterfaceState
+}
+
+export type BusListOk = {
+  readonly ok: true
+  readonly interfaces: readonly BusInterface[]
+}
+
+export type BusOpenOk = {
+  readonly ok: true
+  readonly busId: string
+}
+
+export type BusCloseOk = {
+  readonly ok: true
+}
+
+export type BusCommandError = {
+  readonly ok: false
+  readonly error: EngineErrorPayload
+}
+
+export type BusListResult = BusListOk | BusCommandError
+export type BusOpenResult = BusOpenOk | BusCommandError
+export type BusCloseResult = BusCloseOk | BusCommandError
+
 /**
  * Narrow context-bridge API exposed as `window.vanillabus`.
- * No bus.list/open, DBC, fs, or SocketCAN surface.
+ * Bus list/open/close go through main → engine IPC. No SocketCAN in the renderer.
  */
 export type VanillaBusApi = {
   readonly version: string
@@ -50,6 +87,9 @@ export type VanillaBusApi = {
   onEngineEvent: (listener: (event: EngineConnectionEvent) => void) => Unsubscribe
   onConnected: (listener: (info: EngineInfo) => void) => Unsubscribe
   onDisconnected: (listener: (info: EngineInfo) => void) => Unsubscribe
+  listBuses: () => Promise<BusListResult>
+  openBus: (name: string, bitrate?: number) => Promise<BusOpenResult>
+  closeBus: (busId: string) => Promise<BusCloseResult>
 }
 
 export const DISCONNECTED_ENGINE_INFO: EngineInfo = {

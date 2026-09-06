@@ -1,5 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
+  BusCloseResult,
+  BusListResult,
+  BusOpenResult,
   EngineConnectionEvent,
   EngineInfo,
   Unsubscribe,
@@ -8,6 +11,9 @@ import type {
 
 const ENGINE_INFO_CHANNEL = 'vanillabus:engine-info'
 const ENGINE_EVENT_CHANNEL = 'vanillabus:engine-event'
+const BUS_LIST_CHANNEL = 'vanillabus:bus-list'
+const BUS_OPEN_CHANNEL = 'vanillabus:bus-open'
+const BUS_CLOSE_CHANNEL = 'vanillabus:bus-close'
 
 function subscribe<T>(channel: string, listener: (payload: T) => void): Unsubscribe {
   const wrapped = (_event: unknown, payload: T): void => {
@@ -40,7 +46,11 @@ const api: VanillaBusApi = {
       if (event.type === 'disconnected') {
         listener(event.info)
       }
-    })
+    }),
+  listBuses: (): Promise<BusListResult> => ipcRenderer.invoke(BUS_LIST_CHANNEL),
+  openBus: (name: string, bitrate?: number): Promise<BusOpenResult> =>
+    ipcRenderer.invoke(BUS_OPEN_CHANNEL, name, bitrate),
+  closeBus: (busId: string): Promise<BusCloseResult> => ipcRenderer.invoke(BUS_CLOSE_CHANNEL, busId)
 }
 
 contextBridge.exposeInMainWorld('vanillabus', api)

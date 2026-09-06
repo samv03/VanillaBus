@@ -1,8 +1,8 @@
-# VanillaBus IPC contract (T2)
+# VanillaBus IPC contract
 
 Electron **main** talks to `vanillabus-engine` over a Unix domain socket.
 The renderer never sees this socket and must not open SocketCAN or parse DBC.
-T3 maps hello / connection status onto `window.vanillabus` (see
+T3+ maps status and bus commands onto `window.vanillabus` (see
 [docs/preload.md](preload.md)).
 
 ## Transport
@@ -25,20 +25,25 @@ T3 maps hello / connection status onto `window.vanillabus` (see
 
 `id` is echoed on request/response. Events may omit it.
 
-## Live in T2
+## Live
 
 | Type | Direction | Payload |
 | --- | --- | --- |
 | `engine.hello` | engine → main on connect; also request/response | `{ "name": "vanillabus-engine", "version": "…", "backends": ["socketcan"] }` |
 | `engine.heartbeat` | engine event, ~2s | `{ "ts_us": <int microseconds> }` |
-| `engine.error` | engine event | `{ "code": "<str>", "message": "<str>" }` |
+| `engine.error` | engine event / failed request | `{ "code": "<str>", "message": "<str>" }` |
+| `bus.list` | request/response | `{ "interfaces": [{ "name", "kind", "state": "up"\|"down" }] }` |
+| `bus.open` | request `{ "name", "bitrate"? }` → `{ "busId" }` | Bind only if the iface exists and is UP. `bitrate` optional; ignored for vcan. Missing/down → `engine.error` (`iface_not_found` / `iface_down`). Never `ip link set up`. |
+| `bus.close` | request `{ "busId" }` → `{ "ok": true }` | Reopen after close is allowed (new `busId`). |
 
 Unknown request types get `engine.error` with `code: "not_implemented"`.
 
-## Reserved (schema only; no SocketCAN/DBC/TX runtime in T2)
+See [docs/privileges.md](privileges.md) for pre-UP / no-root rules.
 
-`bus.list` · `bus.open` · `bus.close` · `dbc.load` · `dbc.clear` ·
-`rx.batch` · `tx.send` · `tx.cyclic.start` · `tx.cyclic.stop`
+## Reserved (schema only; no DBC/RX/TX runtime in T4)
+
+`dbc.load` · `dbc.clear` · `rx.batch` · `tx.send` ·
+`tx.cyclic.start` · `tx.cyclic.stop`
 
 ## Frame object (for later `rx.batch` / `tx.*`)
 

@@ -41,3 +41,15 @@ def heartbeat_message(ts_us: int) -> dict[str, Any]:
 
 def error_message(code: str, message: str, msg_id: str | None = None) -> dict[str, Any]:
     return envelope("engine.error", {"code": code, "message": message}, msg_id)
+
+
+def bus_list_message(interfaces: list[dict[str, Any]], msg_id: str | None = None) -> dict[str, Any]:
+    return envelope("bus.list", {"interfaces": interfaces}, msg_id)
+
+
+def bus_open_message(bus_id: str, msg_id: str | None = None) -> dict[str, Any]:
+    return envelope("bus.open", {"busId": bus_id}, msg_id)
+
+
+def bus_close_message(msg_id: str | None = None) -> dict[str, Any]:
+    return envelope("bus.close", {"ok": True}, msg_id)

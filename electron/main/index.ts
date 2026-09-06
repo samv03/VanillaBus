@@ -9,9 +9,9 @@ const supervisor = new EngineSupervisor()
 function createWindow(): void {
   const window = new BrowserWindow({
     width: 960,
-    height: 640,
+    height: 780,
     minWidth: 640,
-    minHeight: 420,
+    minHeight: 520,
     title: WINDOW_TITLE,
     show: false,
     autoHideMenuBar: true,

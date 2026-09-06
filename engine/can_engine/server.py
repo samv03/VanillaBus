@@ -17,7 +17,16 @@ from can_engine.framing import (
     decode_payload,
     encode_message,
 )
-from can_engine.protocol import KNOWN_TYPES, error_message, heartbeat_message, hello_message
+from can_engine.bus import BusError, BusManager
+from can_engine.protocol import (
+    KNOWN_TYPES,
+    bus_close_message,
+    bus_list_message,
+    bus_open_message,
+    error_message,
+    heartbeat_message,
+    hello_message,
+)
 
 LOG = logging.getLogger("vanillabus-engine")
 HEARTBEAT_INTERVAL_S = 2.0
@@ -70,9 +79,17 @@ async def write_message(writer: asyncio.StreamWriter, message: dict) -> None:
     await writer.drain()
 
 
-async def handle_request(message: dict, writer: asyncio.StreamWriter) -> None:
+def _payload(message: dict) -> dict:
+    raw = message.get("payload")
+    return raw if isinstance(raw, dict) else {}
+
+
+async def handle_request(
+    message: dict, writer: asyncio.StreamWriter, manager: BusManager
+) -> None:
     msg_type = message["type"]
     msg_id = message["id"] if isinstance(message.get("id"), str) else None
+    payload = _payload(message)
 
     if msg_type == "engine.hello":
         await write_message(writer, hello_message(msg_id))
@@ -82,10 +99,34 @@ async def handle_request(message: dict, writer: asyncio.StreamWriter) -> None:
         await write_message(writer, heartbeat_message(now_ts_us()))
         return
 
+    try:
+        if msg_type == "bus.list":
+            listed = manager.list()
+            await write_message(writer, bus_list_message(listed["interfaces"], msg_id))
+            return
+        if msg_type == "bus.open":
+            opened = manager.open(payload.get("name"), payload.get("bitrate"))
+            await write_message(writer, bus_open_message(opened["busId"], msg_id))
+            return
+        if msg_type == "bus.close":
+            manager.close(payload.get("busId"))
+            await write_message(writer, bus_close_message(msg_id))
+            return
+    except BusError as exc:
+        await write_message(writer, error_message(exc.code, exc.message, msg_id))
+        return
+    except Exception:
+        LOG.exception("bus request %s failed", msg_type)
+        await write_message(
+            writer,
+            error_message("internal", f"{msg_type} failed unexpectedly", msg_id),
+        )
+        return
+
     if msg_type in KNOWN_TYPES:
         await write_message(
             writer,
-            error_message("not_implemented", f"{msg_type} is not implemented in T2", msg_id),
+            error_message("not_implemented", f"{msg_type} is not implemented in T4", msg_id),
         )
         return
 
@@ -105,7 +146,9 @@ async def heartbeat_loop(writer: asyncio.StreamWriter) -> None:
 
 
 async def client_session(
-    reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    reader: asyncio.StreamReader,
+    writer: asyncio.StreamWriter,
+    manager: BusManager,
 ) -> None:
     peer = writer.get_extra_info("peername")
     LOG.info("client connected %s", peer)
@@ -124,7 +167,7 @@ async def client_session(
                 break
             if message is None:
                 break
-            await handle_request(message, writer)
+            await handle_request(message, writer, manager)
     except (ConnectionError, BrokenPipeError):
         LOG.info("client connection dropped")
     except Exception:
@@ -144,11 +187,18 @@ async def client_session(
 
 
 async def serve(path: Path) -> None:
-    server = await asyncio.start_unix_server(client_session, path=str(path))
+    manager = BusManager()
+    server = await asyncio.start_unix_server(
+        lambda reader, writer: client_session(reader, writer, manager),
+        path=str(path),
+    )
     os.chmod(path, 0o600)
     LOG.info("listening on %s (max frame %s bytes)", path, MAX_FRAME_BYTES)
-    async with server:
-        await server.serve_forever()
+    try:
+        async with server:
+            await server.serve_forever()
+    finally:
+        manager.close_all()
 
 
 def main(argv: list[str] | None = None) -> int:

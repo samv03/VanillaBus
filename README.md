@@ -1,10 +1,10 @@
 # VanillaBus
 
-SocketCAN-first desktop bus monitor. T2 wires live IPC between Electron main
-and `vanillabus-engine` (length-prefixed JSON on a Unix domain socket). T3
-exposes that status to the renderer as a typed `window.vanillabus` preload
-API with explicit **Connected** / **Disconnected** states. CAN I/O, DBC
-decode, and Trace/Graph/Transmit UI are **not** implemented yet.
+SocketCAN-first desktop bus monitor. T4 opens host CAN interfaces through
+`vanillabus-engine` (`bus.list` / `bus.open` / `bus.close`) over the existing
+Unix-domain IPC. The renderer uses a typed `window.vanillabus` API
+(`listBuses` / `openBus` / `closeBus`). Raw RX, DBC, and Trace/Graph/Transmit
+are **not** implemented yet.
 
 ## Requirements
 
@@ -20,46 +20,67 @@ Also need a current **Node.js 20+** (npm) and **Python 3.10+** (pip).
 VanillaBus talks to Linux SocketCAN first (`can0`, `vcan0`, …). Vendor SDKs
 (Peak, Kvaser, …) are out of scope.
 
+## Privilege / pre-UP (MVP)
+
+The engine **binds only**. It will not `ip link set up`, set a kernel bitrate,
+or run as root. Bring the iface up first:
+
+```bash
+sudo ./scripts/setup-vcan.sh          # creates vcan0 and sets it UP
+```
+
+Opening a missing or down iface returns structured `engine.error`
+(`iface_not_found` / `iface_down`) and does not crash. See
+[docs/privileges.md](docs/privileges.md). A later pkexec/`setcap` helper may
+own `CAP_NET_ADMIN` — never Electron as root.
+
 ## Run the desktop app
 
 From the repository root:
 
 ```bash
 npm install
-python3 -m pip install -e engine/   # optional; main also sets PYTHONPATH=engine
+python3 -m pip install -e engine/   # installs python-can; main also sets PYTHONPATH=engine
 npm run dev
 ```
 
 `npm run dev` starts Vite, opens an Electron window titled **VanillaBus**, and
-spawns `python3 -m can_engine --ipc <socket>`. The window calls
-`window.vanillabus.getEngineInfo()` and shows **Connected** plus engine
-name/version after `engine.hello`. If the engine process dies, the UI flips to
-**Disconnected**, main logs the disconnect, and the badge returns to
-**Connected** after respawn.
-
-To observe Disconnected by hand: `pkill -f 'python3 -m can_engine'` while the
-app is running. Automated: `npm run test:bridge`.
-
-See [docs/preload.md](docs/preload.md) for the API shape.
+spawns `python3 -m can_engine --ipc <socket>`. After `engine.hello` the window
+shows **Connected**. Use **List buses** / **Open** to call `bus.list` /
+`bus.open` (result includes `busId`). Close + reopen works.
 
 The IPC socket lives under `$XDG_RUNTIME_DIR/vanillabus/` (mode 0600), or a
 private 0700 `mkstemp` directory — not a world-writable predictable `/tmp` path.
 
-## Hello / heartbeat test (no Electron)
+See [docs/preload.md](docs/preload.md) for the API shape.
+
+## Tests
 
 ```bash
-python3 scripts/test-ipc-hello.py
+python3 scripts/test-ipc-hello.py     # T2 hello / heartbeat (or npm run test:ipc)
+npm run test:bridge                   # T3 disconnect / respawn
+python3 scripts/test-bus-open.py      # T4 list / missing error / optional vcan
+# or: npm run test:bus
+npm run test:bus-bridge               # same path via EngineSupervisor
 ```
 
-or `npm run test:ipc`. The script starts the engine, prints the `engine.hello`
-payload, checks a hello round-trip and a heartbeat, then proves a malformed
-length does not crash the process.
+`test-bus-open.py` always asserts `bus.list` and that opening a missing name
+returns `engine.error` / `iface_not_found`. If `vcan0` is UP it also opens,
+closes, and reopens. If not, it prints:
+
+```text
+SKIP vcan0 open/close/reopen: vcan0 is not UP on this host.
+Bring it up with: sudo ./scripts/setup-vcan.sh
+```
+
+Creating vcan in CI needs `sudo` / `CAP_NET_ADMIN`. This repo does not sudo
+from the test.
 
 ## Helper scripts
 
 ```bash
 ./scripts/check-host.sh
-sudo ./scripts/setup-vcan.sh          # creates vcan0; unused by the T2 UI
+sudo ./scripts/setup-vcan.sh          # vcan0 UP for bus.open
 ```
 
 ## Layout
@@ -67,17 +88,18 @@ sudo ./scripts/setup-vcan.sh          # creates vcan0; unused by the T2 UI
 ```
 package.json
 electron/main/          # window + engine spawn / UDS client + ipc-bridge
-electron/preload/       # window.vanillabus (getEngineInfo + events)
-electron/renderer/      # React Connected / Disconnected UX (no CAN / DBC)
-engine/pyproject.toml   # vanillabus-engine
-engine/can_engine/      # framing server + hello/heartbeat
-shared/engine.ts        # renderer/host types for hello + status
+electron/preload/       # window.vanillabus (status + listBuses/openBus/closeBus)
+electron/renderer/      # React status + SocketCAN list/open panel
+engine/pyproject.toml   # vanillabus-engine (python-can)
+engine/can_engine/      # framing server + hello + SocketCAN bus map
+shared/engine.ts        # renderer/host types
 shared/ipc-schema.json  # locked IPC types
-scripts/                # check-host, setup-vcan, hello + disconnect tests
+scripts/                # check-host, setup-vcan, hello + bus tests
 fixtures/dbc/           # later DBC samples (engine-side only)
 docs/architecture.md
 docs/ipc.md
 docs/preload.md
+docs/privileges.md
 ```
 
 See [docs/ipc.md](docs/ipc.md) for the framing contract. Message types:

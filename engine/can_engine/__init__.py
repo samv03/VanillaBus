@@ -1,6 +1,6 @@
-"""VanillaBus CAN engine (T1 scaffold)."""
+"""VanillaBus CAN engine."""
 
-from can_engine.hello import hello
+from can_engine.hello import ENGINE_VERSION, hello, hello_payload
 
-__all__ = ["hello", "__version__"]
-__version__ = "0.1.0"
+__all__ = ["hello", "hello_payload", "__version__"]
+__version__ = ENGINE_VERSION

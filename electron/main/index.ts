@@ -1,7 +1,9 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'node:path'
+import { EngineSupervisor } from './engineSupervisor'
 
 const WINDOW_TITLE = 'VanillaBus'
+const supervisor = new EngineSupervisor()
 
 function createWindow(): void {
   const window = new BrowserWindow({
@@ -38,7 +40,19 @@ function createWindow(): void {
   }
 }
 
+function broadcastEngineStatus(): void {
+  const status = supervisor.getStatus()
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send('vanillabus:engine-status', status)
+  }
+}
+
 app.whenReady().then(() => {
+  ipcMain.handle('vanillabus:engine-status', () => supervisor.getStatus())
+  supervisor.onStatus(() => {
+    broadcastEngineStatus()
+  })
+  supervisor.start()
   createWindow()
 
   app.on('activate', () => {
@@ -46,6 +60,10 @@ app.whenReady().then(() => {
       createWindow()
     }
   })
+})
+
+app.on('before-quit', () => {
+  supervisor.stop()
 })
 
 app.on('window-all-closed', () => {

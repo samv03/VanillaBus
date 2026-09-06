@@ -1,12 +1,34 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
+
+export type EngineHello = {
+  name: string
+  version: string
+  backends: string[]
+}
+
+export type EngineStatus = {
+  connected: boolean
+  hello: EngineHello | null
+}
+
+type StatusListener = (status: EngineStatus) => void
 
 /**
- * T1 preload stub. Later milestones will expose a typed IPC surface that
- * matches shared/ipc-schema.json (engine.hello, bus.*, dbc.load, rx/tx).
- * No live engine IPC is wired in T1.
+ * Narrow preload surface. Engine connection status comes from engine.hello.
+ * SocketCAN / DBC stay out of the renderer.
  */
 const api = {
-  version: '0.1.0'
+  version: '0.1.0',
+  getEngineStatus: (): Promise<EngineStatus> => ipcRenderer.invoke('vanillabus:engine-status'),
+  onEngineStatus: (listener: StatusListener): (() => void) => {
+    const wrapped = (_event: unknown, status: EngineStatus): void => {
+      listener(status)
+    }
+    ipcRenderer.on('vanillabus:engine-status', wrapped)
+    return () => {
+      ipcRenderer.removeListener('vanillabus:engine-status', wrapped)
+    }
+  }
 } as const
 
 contextBridge.exposeInMainWorld('vanillabus', api)

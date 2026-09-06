@@ -1,0 +1,146 @@
+import { createConnection, type Socket } from 'node:net'
+import { encodeMessage, FrameDecoder, ProtocolError } from './framing'
+
+export type EngineHello = {
+  name: string
+  version: string
+  backends: string[]
+}
+
+export type EngineStatus = {
+  connected: boolean
+  hello: EngineHello | null
+}
+
+export type EngineMessage = {
+  type: string
+  id?: string
+  payload?: Record<string, unknown>
+}
+
+function asHello(payload: unknown): EngineHello | null {
+  if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
+    return null
+  }
+  const record = payload as Record<string, unknown>
+  if (typeof record.name !== 'string' || typeof record.version !== 'string') {
+    return null
+  }
+  const backends = Array.isArray(record.backends)
+    ? record.backends.filter((item): item is string => typeof item === 'string')
+    : []
+  return { name: record.name, version: record.version, backends }
+}
+
+export class EngineClient {
+  private socket: Socket | null = null
+  private readonly decoder = new FrameDecoder()
+  private closed = false
+
+  constructor(
+    private readonly onHello: (hello: EngineHello) => void,
+    private readonly onHeartbeat: (tsUs: number) => void,
+    private readonly onDisconnect: (reason: string) => void
+  ) {}
+
+  connect(path: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const socket = createConnection({ path })
+      this.socket = socket
+      let opened = false
+
+      const onReady = (): void => {
+        opened = true
+        socket.off('error', onError)
+        socket.on('error', (error) => {
+          console.warn('[vanillabus] engine socket error', error)
+        })
+        resolve()
+      }
+      const onError = (error: Error): void => {
+        socket.off('connect', onReady)
+        reject(error)
+      }
+
+      socket.once('connect', onReady)
+      socket.once('error', onError)
+
+      socket.on('data', (chunk) => {
+        try {
+          for (const message of this.decoder.push(chunk)) {
+            this.dispatch(message)
+          }
+        } catch (error) {
+          const reason =
+            error instanceof ProtocolError
+              ? `${error.code}: ${error.message}`
+              : error instanceof Error
+                ? error.message
+                : String(error)
+          console.warn('[vanillabus] dropping engine frames:', reason)
+          this.close()
+        }
+      })
+
+      socket.on('close', () => {
+        if (this.closed) {
+          return
+        }
+        this.closed = true
+        // Connect failures retry; only a live session should trigger respawn.
+        if (opened) {
+          this.onDisconnect('socket closed')
+        }
+      })
+    })
+  }
+
+  sendHello(id = 'hello'): void {
+    this.send({ type: 'engine.hello', id, payload: {} })
+  }
+
+  send(message: EngineMessage): void {
+    if (!this.socket || this.socket.destroyed) {
+      return
+    }
+    this.socket.write(encodeMessage(message))
+  }
+
+  close(): void {
+    this.closed = true
+    this.decoder.reset()
+    const socket = this.socket
+    this.socket = null
+    if (socket && !socket.destroyed) {
+      socket.destroy()
+    }
+  }
+
+  private dispatch(message: Record<string, unknown>): void {
+    const type = message.type
+    const payload =
+      message.payload !== null && typeof message.payload === 'object' && !Array.isArray(message.payload)
+        ? (message.payload as Record<string, unknown>)
+        : undefined
+
+    if (type === 'engine.hello') {
+      const hello = asHello(payload)
+      if (hello) {
+        this.onHello(hello)
+      }
+      return
+    }
+
+    if (type === 'engine.heartbeat') {
+      const tsUs = payload?.ts_us
+      if (typeof tsUs === 'number') {
+        this.onHeartbeat(tsUs)
+      }
+      return
+    }
+
+    if (type === 'engine.error') {
+      console.warn('[vanillabus] engine.error', payload)
+    }
+  }
+}

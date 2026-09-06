@@ -24,6 +24,7 @@ export class EngineSupervisor {
   private client: EngineClient | null = null
   private ipcPath: string | null = null
   private generation = 0
+  private heartbeatLogGeneration = -1
   private stopping = false
   private restartTimer: NodeJS.Timeout | null = null
   private status: EngineStatus = { connected: false, hello: null }
@@ -170,7 +171,11 @@ export class EngineSupervisor {
         if (generation !== this.generation) {
           return
         }
-        console.log(`[vanillabus] engine.heartbeat ts_us=${tsUs}`)
+        // Receive every beat; log once per connection so disconnect/respawn stays visible.
+        if (this.heartbeatLogGeneration !== generation) {
+          this.heartbeatLogGeneration = generation
+          console.log(`[vanillabus] engine.heartbeat ts_us=${tsUs}`)
+        }
       },
       (reason: string) => {
         if (generation !== this.generation || this.stopping) {

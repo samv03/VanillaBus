@@ -11,6 +11,8 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from can_engine.rx import RX_BATCH_MAX_FRAMES, RxPump
+
 # Linux ARPHRD_CAN / IFF_UP. Used so list() can report down ifaces too.
 ARPHRD_CAN = 280
 IFF_UP = 0x1
@@ -150,6 +152,7 @@ class BusManager:
         self._opener = opener
         self._buses: dict[str, Any] = {}
         self._names: dict[str, str] = {}
+        self._pumps: dict[str, RxPump] = {}
 
     def list(self) -> dict[str, Any]:
         return {"interfaces": list_interfaces(self._sysfs_net)}
@@ -178,11 +181,28 @@ class BusManager:
         bus_id = str(uuid.uuid4())
         self._buses[bus_id] = bus
         self._names[bus_id] = channel
+        pump = RxPump(bus, bus_id, channel)
+        self._pumps[bus_id] = pump
+        pump.start()
         return {"busId": bus_id}
+
+    def drain_rx(self, max_frames: int = RX_BATCH_MAX_FRAMES) -> tuple[list[dict[str, Any]], int]:
+        """Take up to max_frames queued RX frames plus the cumulative drop count."""
+        frames: list[dict[str, Any]] = []
+        dropped = 0
+        for pump in list(self._pumps.values()):
+            dropped += pump.dropped
+            room = max_frames - len(frames)
+            if room > 0:
+                frames.extend(pump.drain(room))
+        return frames, dropped
 
     def close(self, bus_id: object) -> dict[str, Any]:
         if not isinstance(bus_id, str) or not bus_id:
             raise BusError("invalid_payload", "bus.close requires payload.busId")
+        pump = self._pumps.pop(bus_id, None)
+        if pump is not None:
+            pump.stop()
         bus = self._buses.pop(bus_id, None)
         self._names.pop(bus_id, None)
         if bus is None:

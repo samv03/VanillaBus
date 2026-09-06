@@ -103,6 +103,11 @@ class FakeBus:
     def __init__(self) -> None:
         self.shutdowns = 0
 
+    def recv(self, timeout: float | None = None):
+        if timeout:
+            time.sleep(min(float(timeout), 0.02))
+        return None
+
     def shutdown(self) -> None:
         self.shutdowns += 1
 

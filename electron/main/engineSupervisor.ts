@@ -6,7 +6,8 @@ import type {
   BusListOk,
   BusOpenOk,
   EngineHello,
-  EngineStatus
+  EngineStatus,
+  RxBatch
 } from '../../shared/engine'
 import { EngineClient, EngineRequestError } from './engineClient'
 import { createIpcSocketPath } from './ipcPath'
@@ -16,6 +17,7 @@ const CONNECT_ATTEMPTS = 40
 const CONNECT_GAP_MS = 100
 
 export type StatusListener = (status: EngineStatus) => void
+export type RxBatchListener = (batch: RxBatch) => void
 
 function repoRoot(): string {
   return process.cwd()
@@ -37,11 +39,19 @@ export class EngineSupervisor {
   private restartTimer: NodeJS.Timeout | null = null
   private status: EngineStatus = { connected: false, hello: null }
   private readonly listeners = new Set<StatusListener>()
+  private readonly rxListeners = new Set<RxBatchListener>()
 
   onStatus(listener: StatusListener): () => void {
     this.listeners.add(listener)
     return () => {
       this.listeners.delete(listener)
+    }
+  }
+
+  onRxBatch(listener: RxBatchListener): () => void {
+    this.rxListeners.add(listener)
+    return () => {
+      this.rxListeners.delete(listener)
     }
   }
 
@@ -232,6 +242,14 @@ export class EngineSupervisor {
         console.warn(`[vanillabus] engine IPC ${reason}; respawning`)
         this.setStatus({ connected: false, hello: null })
         this.killChild()
+      },
+      (batch: RxBatch) => {
+        if (generation !== this.generation) {
+          return
+        }
+        for (const listener of this.rxListeners) {
+          listener(batch)
+        }
       }
     )
 

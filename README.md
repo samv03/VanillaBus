@@ -1,10 +1,10 @@
 # VanillaBus
 
-SocketCAN-first desktop bus monitor. T4 opens host CAN interfaces through
-`vanillabus-engine` (`bus.list` / `bus.open` / `bus.close`) over the existing
-Unix-domain IPC. The renderer uses a typed `window.vanillabus` API
-(`listBuses` / `openBus` / `closeBus`). Raw RX, DBC, and Trace/Graph/Transmit
-are **not** implemented yet.
+SocketCAN-first desktop bus monitor. T5 is a throwaway raw RX stub: after
+`bus.open`, `vanillabus-engine` recv()s on that python-can bus and emits
+`rx.batch` (≤16 ms or ≤500 frames). The renderer shows a simple recent-frame
+log via `window.vanillabus.onRxBatch`. This is **not** production Trace (T9),
+does not decode DBC (T7), and leaves `rate_ms` null (T6).
 
 ## Requirements
 
@@ -47,7 +47,8 @@ npm run dev
 `npm run dev` starts Vite, opens an Electron window titled **VanillaBus**, and
 spawns `python3 -m can_engine --ipc <socket>`. After `engine.hello` the window
 shows **Connected**. Use **List buses** / **Open** to call `bus.list` /
-`bus.open` (result includes `busId`). Close + reopen works.
+`bus.open` (result includes `busId`). Inject frames on the open iface and they
+appear in the **RX stub** list.
 
 The IPC socket lives under `$XDG_RUNTIME_DIR/vanillabus/` (mode 0600), or a
 private 0700 `mkstemp` directory — not a world-writable predictable `/tmp` path.
@@ -62,7 +63,15 @@ npm run test:bridge                   # T3 disconnect / respawn
 python3 scripts/test-bus-open.py      # T4 list / missing error / optional vcan
 # or: npm run test:bus
 npm run test:bus-bridge               # same path via EngineSupervisor
+python3 scripts/test-rx-batch.py      # T5 frame map + drop-oldest + optional vcan
+# or: npm run test:rx
+npm run test:rx-bridge                # same RX path via EngineSupervisor
 ```
+
+`test-rx-batch.py` always checks FrameEvent mapping, drop-oldest, and ≤500
+batching (no host CAN required). If `vcan0` is UP it opens the iface, injects
+`0x42A` / `11223344`, and asserts `rx.batch` within 200 ms. If not, it prints
+`SKIP vcan0 RX inject` and still exits 0.
 
 `test-bus-open.py` always asserts `bus.list` and that opening a missing name
 returns `engine.error` / `iface_not_found`. If `vcan0` is UP it also opens,
@@ -76,11 +85,22 @@ Bring it up with: sudo ./scripts/setup-vcan.sh
 Creating vcan in CI needs `sudo` / `CAP_NET_ADMIN`. This repo does not sudo
 from the test.
 
+## Inject frames (verify RX)
+
+```bash
+sudo ./scripts/setup-vcan.sh
+# in the app: List buses → Open vcan0
+cansend vcan0 123#11223344
+cangen vcan0 -I 123 -L 4 -D 11223344 -n 50 -g 2
+```
+
+Frames should show in the RX stub (ID, DLC, data, time) within ~100–200 ms.
+
 ## Helper scripts
 
 ```bash
 ./scripts/check-host.sh
-sudo ./scripts/setup-vcan.sh          # vcan0 UP for bus.open
+sudo ./scripts/setup-vcan.sh          # vcan0 UP for bus.open + RX
 ```
 
 ## Layout
@@ -88,13 +108,13 @@ sudo ./scripts/setup-vcan.sh          # vcan0 UP for bus.open
 ```
 package.json
 electron/main/          # window + engine spawn / UDS client + ipc-bridge
-electron/preload/       # window.vanillabus (status + listBuses/openBus/closeBus)
-electron/renderer/      # React status + SocketCAN list/open panel
+electron/preload/       # window.vanillabus (status + bus + onRxBatch)
+electron/renderer/      # React status + list/open + RX stub log
 engine/pyproject.toml   # vanillabus-engine (python-can)
-engine/can_engine/      # framing server + hello + SocketCAN bus map
+engine/can_engine/      # framing server + hello + SocketCAN + RX pump
 shared/engine.ts        # renderer/host types
 shared/ipc-schema.json  # locked IPC types
-scripts/                # check-host, setup-vcan, hello + bus tests
+scripts/                # check-host, setup-vcan, hello + bus + rx tests
 fixtures/dbc/           # later DBC samples (engine-side only)
 docs/architecture.md
 docs/ipc.md

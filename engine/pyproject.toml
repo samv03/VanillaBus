@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "vanillabus-engine"
 version = "0.1.0"
-description = "VanillaBus CAN engine (SocketCAN list/open/close over IPC)."
+description = "VanillaBus CAN engine (SocketCAN open + raw RX batch over IPC)."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "GPL-3.0-or-later" }

@@ -7,7 +7,7 @@ VanillaBus is a SocketCAN-first desktop bus monitor.
 │ Electron desktop (npm run dev)              │
 │  main  → window + engine spawn / restart    │
 │  preload → window.vanillabus (typed)        │
-│  renderer → status + SocketCAN list/open    │
+│  renderer → status + list/open + RX stub    │
 └──────────────────┬──────────────────────────┘
                    │ UDS: 4-byte BE length + JSON
                    │ (see docs/ipc.md)
@@ -24,17 +24,19 @@ VanillaBus is a SocketCAN-first desktop bus monitor.
   supervisor (spawn, log disconnect, respawn, request/response). Full
   hardening is later (T16).
 - **Preload** exposes `window.vanillabus`: engine status plus `listBuses` /
-  `openBus` / `closeBus`. No raw sockets, fs, or SocketCAN handles. Types
-  live in `shared/engine.ts`.
-- **ipc-bridge** (main) maps supervisor host events and bus RPCs onto those
-  preload channels.
+  `openBus` / `closeBus` / `onRxBatch`. No raw sockets, fs, or SocketCAN
+  handles. Types live in `shared/engine.ts`.
+- **ipc-bridge** (main) maps supervisor host events, bus RPCs, and `rx.batch`
+  onto those preload channels.
 - **Engine** is a Python package. All bus I/O belongs here (python-can
-  SocketCAN). Interfaces must already be UP; see [privileges.md](privileges.md).
+  SocketCAN). After `bus.open` a recv thread batches frames onto IPC.
+  Interfaces must already be UP; see [privileges.md](privileges.md).
 
-## T4 vs later
+## T5 vs later
 
-T4 implements `bus.list` / `bus.open` / `bus.close` (iface map + `busId`).
-It does not stream RX, load DBC, or ship Trace/Graph/Transmit UI. It does
+T5 is a throwaway raw RX stub: `rx.batch` over IPC and a simple recent-frame
+log. It is not production Trace (T9), does not decode DBC (T7), and leaves
+`rate_ms` null (T6). T4 bus.list/open/close stay as they are. The engine does
 not bring interfaces up or set bitrate via `CAP_NET_ADMIN`.
 
 Linux SocketCAN (`can0`, `vcan0`) is the first-class backend. There is no

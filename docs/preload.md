@@ -19,6 +19,7 @@ window.vanillabus = {
   listBuses(): Promise<BusListResult>
   openBus(name, bitrate?): Promise<BusOpenResult>
   closeBus(busId): Promise<BusCloseResult>
+  onRxBatch(listener): Unsubscribe       // { frames, dropped }
 }
 ```
 
@@ -49,8 +50,10 @@ or DBC objects.
 | `vanillabus:bus-list` | invoke | `BusListResult` |
 | `vanillabus:bus-open` | invoke | `BusOpenResult` |
 | `vanillabus:bus-close` | invoke | `BusCloseResult` |
+| `vanillabus:rx-batch` | event | `RxBatch` (`frames`, `dropped`) |
 
 T2 engine IPC (`engine.hello`, `engine.heartbeat`, respawn) is unchanged.
+`rx.batch` is a T5 stub (ID / DLC / data / time). Not Trace.
 
 ## Observing Disconnected
 
@@ -71,3 +74,12 @@ the child PID, and asserts a `disconnected` then `connected` transition.
 4. Open a missing name (e.g. `vb_missing0`) — status shows `iface_not_found`.
 
 Automated: `npm run test:bus` and `npm run test:bus-bridge`.
+
+## Raw RX stub
+
+1. Bring up and open vcan0 as above.
+2. Inject frames from another terminal:
+   `cansend vcan0 123#11223344` or `cangen vcan0 -n 20 -I 123`.
+3. The **RX stub** list should show ID / DLC / data / time within ~200 ms.
+
+Automated: `npm run test:rx` and `npm run test:rx-bridge` (skip if vcan0 is not UP).

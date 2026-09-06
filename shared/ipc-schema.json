@@ -47,17 +47,23 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "busId",
+        "ifName",
         "can_id",
         "data",
         "dlc",
         "is_eff",
         "is_fd",
         "brs",
+        "is_rtr",
+        "is_err",
         "dir",
         "ts_us",
         "rate_ms"
       ],
       "properties": {
+        "busId": { "type": "string", "description": "Open-bus id from bus.open." },
+        "ifName": { "type": "string", "description": "SocketCAN interface name (e.g. vcan0)." },
         "can_id": { "type": "integer", "minimum": 0 },
         "data": {
           "type": "string",
@@ -67,13 +73,15 @@
         "is_eff": { "type": "boolean", "description": "Extended (29-bit) identifier." },
         "is_fd": { "type": "boolean" },
         "brs": { "type": "boolean", "description": "CAN FD bit-rate switch." },
+        "is_rtr": { "type": "boolean", "description": "Remote transmission request." },
+        "is_err": { "type": "boolean", "description": "Error frame." },
         "dir": { "type": "string", "enum": ["rx", "tx"] },
         "ts_us": {
           "type": "integer",
-          "description": "Hardware or capture timestamp in microseconds."
+          "description": "Software capture timestamp in microseconds (T5: time.time_ns()/1000)."
         },
         "rate_ms": {
-          "description": "(Δts_us)/1000 for the same can_id. null until a second sample exists.",
+          "description": "(Δts_us)/1000 for the same can_id. null until T6 / a second sample exists.",
           "type": ["number", "null"]
         }
       }
@@ -280,18 +288,24 @@
           }
         },
         "rx.batch": {
-          "description": "Batched received frames from the engine to main. Not emitted in T2.",
+          "description": "Batched received frames from the engine to main. T5 stub: ≤16 ms or ≤500 frames; rate_ms is null.",
           "type": "object",
           "properties": {
             "direction": { "const": "event" },
             "payload": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["frames"],
+              "required": ["frames", "dropped"],
               "properties": {
                 "frames": {
                   "type": "array",
+                  "maxItems": 500,
                   "items": { "$ref": "#/properties/frame" }
+                },
+                "dropped": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Cumulative frames dropped (oldest) because the RX queue was full."
                 }
               }
             }

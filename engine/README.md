@@ -3,8 +3,8 @@
 Python package for the VanillaBus CAN engine.
 
 Listens on a Unix domain socket (`--ipc <path>`) and speaks length-prefixed
-JSON. T4 implements `engine.hello`, `engine.heartbeat`, `engine.error`, and
-`bus.list` / `bus.open` / `bus.close` via **python-can** SocketCAN.
+JSON. T5 adds a raw RX stub: after `bus.open` a recv thread emits `rx.batch`
+(≤16 ms or ≤500 frames). T4 `bus.list` / `bus.open` / `bus.close` stay.
 
 The engine binds an iface only if it already exists and is UP. It never
 `ip link set up`. See [docs/privileges.md](../docs/privileges.md).
@@ -31,4 +31,5 @@ without Electron:
 ```bash
 python3 scripts/test-ipc-hello.py
 python3 scripts/test-bus-open.py
+python3 scripts/test-rx-batch.py
 ```

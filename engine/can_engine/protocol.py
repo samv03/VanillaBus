@@ -53,3 +53,7 @@ def bus_open_message(bus_id: str, msg_id: str | None = None) -> dict[str, Any]:
 
 def bus_close_message(msg_id: str | None = None) -> dict[str, Any]:
     return envelope("bus.close", {"ok": True}, msg_id)
+
+
+def rx_batch_message(frames: list[dict[str, Any]], dropped: int = 0) -> dict[str, Any]:
+    return envelope("rx.batch", {"frames": frames, "dropped": dropped})

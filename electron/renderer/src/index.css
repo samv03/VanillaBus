@@ -23,7 +23,7 @@ body {
 }
 
 .shell {
-  max-width: 46rem;
+  max-width: 52rem;
   margin: 0 auto;
   padding: 3rem 1.5rem 4rem;
 }
@@ -287,4 +287,24 @@ tr:last-child td {
   color: #f0a0a0;
   border-color: #6b3333;
   background: #2a1616;
+}
+
+.rx-stub {
+  margin-top: 2rem;
+}
+
+.rx-log {
+  max-height: 20rem;
+  overflow: auto;
+  border: 1px solid #2a343d;
+}
+
+.rx-log table {
+  border: 0;
+}
+
+.rx-id code,
+.rx-data code {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
 }

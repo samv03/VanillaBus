@@ -1,5 +1,5 @@
 import { createConnection, type Socket } from 'node:net'
-import type { EngineHello } from '../../shared/engine'
+import { parseRxBatch, type EngineHello, type RxBatch } from '../../shared/engine'
 import { encodeMessage, FrameDecoder, ProtocolError } from './framing'
 
 export type { EngineHello, EngineStatus } from '../../shared/engine'
@@ -51,7 +51,8 @@ export class EngineClient {
   constructor(
     private readonly onHello: (hello: EngineHello) => void,
     private readonly onHeartbeat: (tsUs: number) => void,
-    private readonly onDisconnect: (reason: string) => void
+    private readonly onDisconnect: (reason: string) => void,
+    private readonly onRxBatch: (batch: RxBatch) => void = () => undefined
   ) {}
 
   connect(path: string): Promise<void> {
@@ -205,6 +206,14 @@ export class EngineClient {
       const tsUs = payload?.ts_us
       if (typeof tsUs === 'number') {
         this.onHeartbeat(tsUs)
+      }
+      return
+    }
+
+    if (type === 'rx.batch') {
+      const batch = parseRxBatch(payload)
+      if (batch) {
+        this.onRxBatch(batch)
       }
       return
     }

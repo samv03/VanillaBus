@@ -4,7 +4,8 @@ import {
   type BusInterface,
   type EngineConnectionEvent,
   type EngineErrorPayload,
-  type EngineInfo
+  type EngineInfo,
+  type FrameEvent
 } from '../../../shared/engine'
 
 type EventLogItem = {
@@ -30,6 +31,20 @@ function formatError(error: EngineErrorPayload): string {
   return `${error.code}: ${error.message}`
 }
 
+function formatCanId(id: number, isEff: boolean): string {
+  const hex = id.toString(16).toUpperCase()
+  return isEff ? hex.padStart(8, '0') : hex.padStart(3, '0')
+}
+
+function formatDataHex(hex: string): string {
+  const clean = hex.toUpperCase()
+  return clean.replace(/../g, '$& ').trim() || '—'
+}
+
+function formatTsUs(tsUs: number): string {
+  return new Date(tsUs / 1000).toISOString().slice(11, 23)
+}
+
 export function App(): ReactElement {
   const api = window.vanillabus
   const bridgeVersion = api?.version ?? 'unavailable'
@@ -40,6 +55,8 @@ export function App(): ReactElement {
   const [manualName, setManualName] = useState('vcan0')
   const [busStatus, setBusStatus] = useState<BusActionStatus>({ kind: 'idle' })
   const [listing, setListing] = useState(false)
+  const [rxFrames, setRxFrames] = useState<FrameEvent[]>([])
+  const [rxDropped, setRxDropped] = useState(0)
 
   useEffect(() => {
     if (!api) {
@@ -53,9 +70,14 @@ export function App(): ReactElement {
         { at: formatTime(new Date()), type: event.type }
       ])
     })
+    const offRx = api.onRxBatch((batch) => {
+      setRxDropped(batch.dropped)
+      setRxFrames((previous) => [...batch.frames, ...previous].slice(0, 80))
+    })
     return () => {
       offStatus()
       offEvent()
+      offRx()
     }
   }, [api])
 
@@ -63,6 +85,8 @@ export function App(): ReactElement {
     if (!info.connected) {
       setInterfaces([])
       setOpened([])
+      setRxFrames([])
+      setRxDropped(0)
     }
   }, [info.connected])
 
@@ -122,12 +146,12 @@ export function App(): ReactElement {
   return (
     <main className="shell">
       <header>
-        <p className="eyebrow">T4 SocketCAN open</p>
+        <p className="eyebrow">T5 raw RX stub</p>
         <h1>VanillaBus</h1>
         <p className="lede">
-          <code>window.vanillabus</code> lists and opens SocketCAN interfaces through
-          the engine. The renderer never binds CAN. Interfaces must already be{' '}
-          <strong>UP</strong> — VanillaBus will not run <code>ip link set up</code>.
+          After <code>bus.open</code> the engine recv()s on that SocketCAN bus and
+          forwards <code>rx.batch</code> here. This list is a throwaway proof — not
+          Trace. The renderer never binds CAN.
         </p>
       </header>
 
@@ -255,6 +279,55 @@ export function App(): ReactElement {
           Missing or down ifaces return structured <code>engine.error</code> (
           <code>iface_not_found</code> / <code>iface_down</code>). See{' '}
           <code>docs/privileges.md</code>.
+        </p>
+      </section>
+
+      <section className="rx-stub">
+        <div className="bus-head">
+          <h2>RX stub</h2>
+          <span className="muted">
+            {rxFrames.length} shown
+            {rxDropped > 0 ? ` · dropped ${rxDropped}` : ''}
+          </span>
+        </div>
+        {rxFrames.length === 0 ? (
+          <p className="muted">
+            Open a bus, then inject frames. Example:{' '}
+            <code>cansend vcan0 123#11223344</code>
+          </p>
+        ) : (
+          <div className="rx-log">
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>ID</th>
+                  <th>DLC</th>
+                  <th>Data</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rxFrames.map((frame, index) => (
+                  <tr key={`${frame.ts_us}-${frame.can_id}-${index}`}>
+                    <td>
+                      <time>{formatTsUs(frame.ts_us)}</time>
+                    </td>
+                    <td className="rx-id">
+                      <code>{formatCanId(frame.can_id, frame.is_eff)}</code>
+                    </td>
+                    <td>{frame.dlc}</td>
+                    <td className="rx-data">
+                      <code>{formatDataHex(frame.data)}</code>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="hint">
+          Newest first, last 80 frames. <code>rate_ms</code> is null until T6. Not
+          a virtualized Trace (T9).
         </p>
       </section>
 

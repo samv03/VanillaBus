@@ -297,25 +297,27 @@ export function App(): ReactElement {
             {rxDropped > 0 ? ` · dropped ${rxDropped}` : ''}
           </span>
         </div>
-        {rxFrames.length === 0 ? (
-          <p className="muted">
-            Open a bus, then inject frames. Example:{' '}
-            <code>cansend vcan0 123#11223344</code>
-          </p>
-        ) : (
-          <div className="rx-log">
-            <table>
-              <thead>
+        <div className="rx-log">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>ID</th>
+                <th>Rate (ms)</th>
+                <th>DLC</th>
+                <th>Data</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rxFrames.length === 0 ? (
                 <tr>
-                  <th>Time</th>
-                  <th>ID</th>
-                  <th>Rate (ms)</th>
-                  <th>DLC</th>
-                  <th>Data</th>
+                  <td colSpan={5} className="muted">
+                    Open a bus, then inject frames. Example:{' '}
+                    <code>cansend vcan0 123#11223344</code>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {rxFrames.map((frame, index) => (
+              ) : (
+                rxFrames.map((frame, index) => (
                   <tr key={`${frame.ts_us}-${frame.can_id}-${index}`}>
                     <td>
                       <time>{formatTsUs(frame.ts_us)}</time>
@@ -329,11 +331,11 @@ export function App(): ReactElement {
                       <code>{formatDataHex(frame.data)}</code>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
         <p className="hint">
           Newest first, last 80 frames. Rate is last inter-arrival (
           <code>(Δts_us)/1000</code>), <code>—</code> on the first sample per key.

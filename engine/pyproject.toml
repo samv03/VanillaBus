@@ -5,12 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "vanillabus-engine"
 version = "0.1.0"
-description = "VanillaBus CAN engine (SocketCAN open + raw RX batch over IPC)."
+description = "VanillaBus CAN engine (SocketCAN open, raw RX, DBC unpack over IPC)."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "GPL-3.0-or-later" }
 authors = [{ name = "Sam Vinella" }]
-dependencies = ["python-can>=4.3"]
+dependencies = ["python-can>=4.3", "cantools>=39.4"]
 
 [project.scripts]
 vanillabus-engine = "can_engine.server:main"

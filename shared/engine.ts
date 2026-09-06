@@ -1,9 +1,9 @@
 /**
  * Shared types for the Electron preload bridge (`window.vanillabus`).
  *
- * These mirror the T2 IPC hello / connection status that main already speaks
+ * These mirror the IPC hello / bus / DBC / RX types that main already speaks
  * with vanillabus-engine. The renderer may import this module for types and
- * pure helpers only — no Node, fs, SocketCAN, or DBC.
+ * pure helpers only — no Node, SocketCAN, or DBC parse.
  */
 
 export type EngineHello = {
@@ -76,7 +76,27 @@ export type BusListResult = BusListOk | BusCommandError
 export type BusOpenResult = BusOpenOk | BusCommandError
 export type BusCloseResult = BusCloseOk | BusCommandError
 
+export type DbcLoadOk = {
+  readonly ok: true
+  readonly message_count: number
+}
+
+export type DbcClearOk = {
+  readonly ok: true
+}
+
+export type DbcLoadResult = DbcLoadOk | BusCommandError
+export type DbcClearResult = DbcClearOk | BusCommandError
+
 export type FrameDir = 'rx' | 'tx'
+
+export type SignalValue = number | string | boolean
+
+/** DBC unpack attached by the engine. null when unknown / no DBC / decode failed. */
+export type FrameDecode = {
+  readonly name: string
+  readonly signals: Readonly<Record<string, SignalValue>>
+}
 
 /** Engine FrameEvent on rx.batch. rate_ms is last (Δts_us)/1000, or null. */
 export type FrameEvent = {
@@ -93,6 +113,7 @@ export type FrameEvent = {
   readonly is_err: boolean
   readonly dir: FrameDir
   readonly rate_ms: number | null
+  readonly decode: FrameDecode | null
 }
 
 export type RxBatch = {
@@ -102,8 +123,8 @@ export type RxBatch = {
 
 /**
  * Narrow context-bridge API exposed as `window.vanillabus`.
- * Bus list/open/close and rx.batch go through main → engine IPC.
- * No SocketCAN in the renderer.
+ * Bus list/open/close, DBC load/clear, and rx.batch go through main → engine IPC.
+ * No SocketCAN or DBC parse in the renderer.
  */
 export type VanillaBusApi = {
   readonly version: string
@@ -115,6 +136,8 @@ export type VanillaBusApi = {
   listBuses: () => Promise<BusListResult>
   openBus: (name: string, bitrate?: number) => Promise<BusOpenResult>
   closeBus: (busId: string) => Promise<BusCloseResult>
+  loadDbc: (busId: string, path: string) => Promise<DbcLoadResult>
+  clearDbc: (busId: string) => Promise<DbcClearResult>
   onRxBatch: (listener: (batch: RxBatch) => void) => Unsubscribe
 }
 
@@ -206,8 +229,36 @@ export function parseFrameEvent(raw: unknown): FrameEvent | null {
     is_rtr: record.is_rtr,
     is_err: record.is_err,
     dir: record.dir,
-    rate_ms: record.rate_ms === null ? null : record.rate_ms
+    rate_ms: record.rate_ms === null ? null : record.rate_ms,
+    decode: parseFrameDecode(record.decode)
   }
+}
+
+function parseFrameDecode(raw: unknown): FrameDecode | null {
+  if (raw === null || raw === undefined) {
+    return null
+  }
+  if (typeof raw !== 'object' || Array.isArray(raw)) {
+    return null
+  }
+  const record = raw as Record<string, unknown>
+  if (typeof record.name !== 'string' || record.name.length === 0) {
+    return null
+  }
+  const signals: Record<string, SignalValue> = {}
+  if (record.signals !== null && record.signals !== undefined) {
+    if (typeof record.signals !== 'object' || Array.isArray(record.signals)) {
+      return { name: record.name, signals }
+    }
+    for (const [key, value] of Object.entries(record.signals as Record<string, unknown>)) {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        signals[key] = value
+      } else if (typeof value === 'string' || typeof value === 'boolean') {
+        signals[key] = value
+      }
+    }
+  }
+  return { name: record.name, signals }
 }
 
 export function parseRxBatch(raw: unknown): RxBatch | null {

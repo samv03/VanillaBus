@@ -11,6 +11,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from can_engine.dbc import DbcError, DbcStore
 from can_engine.rate import RateTracker
 from can_engine.rx import RX_BATCH_MAX_FRAMES, RxPump
 
@@ -155,6 +156,7 @@ class BusManager:
         self._names: dict[str, str] = {}
         self._pumps: dict[str, RxPump] = {}
         self._rates = RateTracker()
+        self._dbc = DbcStore()
 
     def list(self) -> dict[str, Any]:
         return {"interfaces": list_interfaces(self._sysfs_net)}
@@ -183,10 +185,24 @@ class BusManager:
         bus_id = str(uuid.uuid4())
         self._buses[bus_id] = bus
         self._names[bus_id] = channel
-        pump = RxPump(bus, bus_id, channel, rates=self._rates)
+        pump = RxPump(bus, bus_id, channel, rates=self._rates, decode=self._dbc.attach)
         self._pumps[bus_id] = pump
         pump.start()
         return {"busId": bus_id}
+
+    def load_dbc(self, bus_id: object, path: object) -> dict[str, Any]:
+        if not isinstance(bus_id, str) or not bus_id:
+            raise DbcError("invalid_payload", "dbc.load requires payload.busId")
+        if bus_id not in self._buses:
+            raise DbcError("bus_not_found", f"no open bus with busId {bus_id}")
+        return self._dbc.load(bus_id, path)
+
+    def clear_dbc(self, bus_id: object) -> dict[str, Any]:
+        if not isinstance(bus_id, str) or not bus_id:
+            raise DbcError("invalid_payload", "dbc.clear requires payload.busId")
+        if bus_id not in self._buses:
+            raise DbcError("bus_not_found", f"no open bus with busId {bus_id}")
+        return self._dbc.clear(bus_id)
 
     def drain_rx(self, max_frames: int = RX_BATCH_MAX_FRAMES) -> tuple[list[dict[str, Any]], int]:
         """Take up to max_frames queued RX frames plus the cumulative drop count."""
@@ -205,6 +221,7 @@ class BusManager:
         pump = self._pumps.pop(bus_id, None)
         if pump is not None:
             pump.stop()
+        self._dbc.clear(bus_id)
         self._rates.clear_bus(bus_id)
         bus = self._buses.pop(bus_id, None)
         self._names.pop(bus_id, None)

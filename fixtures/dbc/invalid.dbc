@@ -1,0 +1,2 @@
+This is not a valid DBC file.
+It exists inside fixtures/ so path allowlist passes and cantools parse must fail.

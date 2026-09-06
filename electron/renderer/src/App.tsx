@@ -5,17 +5,27 @@ import {
   type EngineConnectionEvent,
   type EngineErrorPayload,
   type EngineInfo,
+  type FrameDecode,
   type FrameEvent
 } from '../../../shared/engine'
+
+const SAMPLE_DBC = 'fixtures/dbc/sample.dbc'
+const MUX_DBC = 'fixtures/dbc/mux.dbc'
 
 type EventLogItem = {
   readonly at: string
   readonly type: EngineConnectionEvent['type']
 }
 
+type OpenedDbc = {
+  readonly path: string
+  readonly messageCount: number
+}
+
 type OpenedBus = {
   readonly busId: string
   readonly name: string
+  readonly dbc: OpenedDbc | null
 }
 
 type BusActionStatus =
@@ -50,6 +60,17 @@ function formatRateMs(rateMs: number | null): string {
     return '—'
   }
   return rateMs.toFixed(1)
+}
+
+function formatSignals(decode: FrameDecode | null): string {
+  if (decode === null) {
+    return '—'
+  }
+  const entries = Object.entries(decode.signals).slice(0, 3)
+  if (entries.length === 0) {
+    return '—'
+  }
+  return entries.map(([name, value]) => `${name}=${String(value)}`).join(' ')
 }
 
 export function App(): ReactElement {
@@ -130,8 +151,43 @@ export function App(): ReactElement {
       setBusStatus({ kind: 'error', error: result.error })
       return
     }
-    setOpened((previous) => [...previous, { busId: result.busId, name }])
+    setOpened((previous) => [...previous, { busId: result.busId, name, dbc: null }])
     setBusStatus({ kind: 'ok', text: `Opened ${name} → busId ${result.busId}` })
+  }
+
+  async function loadNamedDbc(busId: string, path: string): Promise<void> {
+    if (!api) {
+      return
+    }
+    const result = await api.loadDbc(busId, path)
+    if (!result.ok) {
+      setBusStatus({ kind: 'error', error: result.error })
+      return
+    }
+    setOpened((previous) =>
+      previous.map((item) =>
+        item.busId === busId ? { ...item, dbc: { path, messageCount: result.message_count } } : item
+      )
+    )
+    setBusStatus({
+      kind: 'ok',
+      text: `Loaded ${path} (${result.message_count} messages) on ${busId}`
+    })
+  }
+
+  async function clearNamedDbc(busId: string): Promise<void> {
+    if (!api) {
+      return
+    }
+    const result = await api.clearDbc(busId)
+    if (!result.ok) {
+      setBusStatus({ kind: 'error', error: result.error })
+      return
+    }
+    setOpened((previous) =>
+      previous.map((item) => (item.busId === busId ? { ...item, dbc: null } : item))
+    )
+    setBusStatus({ kind: 'ok', text: `Cleared DBC on ${busId}` })
   }
 
   async function closeNamed(busId: string): Promise<void> {
@@ -153,12 +209,12 @@ export function App(): ReactElement {
   return (
     <main className="shell">
       <header>
-        <p className="eyebrow">T6 last inter-arrival</p>
+        <p className="eyebrow">T7 DBC unpack</p>
         <h1>VanillaBus</h1>
         <p className="lede">
-          After <code>bus.open</code> the engine recv()s on that SocketCAN bus and
-          forwards <code>rx.batch</code> with last inter-arrival <code>rate_ms</code>.
-          This list is a throwaway proof — not Trace. The renderer never binds CAN.
+          After <code>bus.open</code>, load a DBC on that <code>busId</code>. Known
+          IDs unpack via cantools onto <code>rx.batch</code>; unknown IDs stay raw.
+          This list is a throwaway proof — not Trace. The renderer never parses DBC.
         </p>
       </header>
 
@@ -259,10 +315,41 @@ export function App(): ReactElement {
               <li key={item.busId}>
                 <span>
                   <code>{item.name}</code> · {item.busId}
+                  {item.dbc ? (
+                    <span className="muted">
+                      {' '}
+                      · {item.dbc.path} ({item.dbc.messageCount} msgs)
+                    </span>
+                  ) : (
+                    <span className="muted"> · no DBC</span>
+                  )}
                 </span>
-                <button type="button" disabled={!connected} onClick={() => void closeNamed(item.busId)}>
-                  Close
-                </button>
+                <span className="bus-actions">
+                  <button
+                    type="button"
+                    disabled={!connected}
+                    onClick={() => void loadNamedDbc(item.busId, SAMPLE_DBC)}
+                  >
+                    Sample DBC
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!connected}
+                    onClick={() => void loadNamedDbc(item.busId, MUX_DBC)}
+                  >
+                    Mux DBC
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!connected || item.dbc === null}
+                    onClick={() => void clearNamedDbc(item.busId)}
+                  >
+                    Clear DBC
+                  </button>
+                  <button type="button" disabled={!connected} onClick={() => void closeNamed(item.busId)}>
+                    Close
+                  </button>
+                </span>
               </li>
             ))}
           </ul>
@@ -303,17 +390,19 @@ export function App(): ReactElement {
               <tr>
                 <th>Time</th>
                 <th>ID</th>
+                <th>Name</th>
                 <th>Rate (ms)</th>
                 <th>DLC</th>
                 <th>Data</th>
+                <th>Signals</th>
               </tr>
             </thead>
             <tbody>
               {rxFrames.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="muted">
-                    Open a bus, then inject frames. Example:{' '}
-                    <code>cansend vcan0 123#11223344</code>
+                  <td colSpan={7} className="muted">
+                    Open a bus, load a DBC, then inject frames. Example:{' '}
+                    <code>cansend vcan0 100#E8035A0A00000000</code>
                   </td>
                 </tr>
               ) : (
@@ -325,11 +414,13 @@ export function App(): ReactElement {
                     <td className="rx-id">
                       <code>{formatCanId(frame.can_id, frame.is_eff)}</code>
                     </td>
+                    <td className="rx-name">{frame.decode?.name ?? '—'}</td>
                     <td className="rx-rate">{formatRateMs(frame.rate_ms)}</td>
                     <td>{frame.dlc}</td>
                     <td className="rx-data">
                       <code>{formatDataHex(frame.data)}</code>
                     </td>
+                    <td className="rx-signals">{formatSignals(frame.decode)}</td>
                   </tr>
                 ))
               )}
@@ -337,9 +428,8 @@ export function App(): ReactElement {
           </table>
         </div>
         <p className="hint">
-          Newest first, last 80 frames. Rate is last inter-arrival (
-          <code>(Δts_us)/1000</code>), <code>—</code> on the first sample per key.
-          Not a virtualized Trace (T9).
+          Newest first, last 80 frames. Name/signals come from the DBC bound to
+          that bus; unknown IDs stay raw. Not a virtualized Trace (T9).
         </p>
       </section>
 

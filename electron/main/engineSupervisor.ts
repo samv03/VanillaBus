@@ -5,6 +5,8 @@ import type {
   BusInterface,
   BusListOk,
   BusOpenOk,
+  DbcClearOk,
+  DbcLoadOk,
   EngineHello,
   EngineStatus,
   RxBatch
@@ -82,6 +84,19 @@ export class EngineSupervisor {
 
   async closeBus(busId: string): Promise<BusCloseOk> {
     await this.request('bus.close', { busId })
+    return { ok: true }
+  }
+
+  async loadDbc(busId: string, path: string): Promise<DbcLoadOk> {
+    const result = await this.request('dbc.load', { busId, path })
+    if (typeof result.message_count !== 'number' || !Number.isInteger(result.message_count)) {
+      throw new EngineRequestError('invalid_payload', 'dbc.load response missing message_count')
+    }
+    return { ok: true, message_count: result.message_count }
+  }
+
+  async clearDbc(busId: string): Promise<DbcClearOk> {
+    await this.request('dbc.clear', { busId })
     return { ok: true }
   }
 

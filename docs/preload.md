@@ -19,6 +19,8 @@ window.vanillabus = {
   listBuses(): Promise<BusListResult>
   openBus(name, bitrate?): Promise<BusOpenResult>
   closeBus(busId): Promise<BusCloseResult>
+  loadDbc(busId, path): Promise<DbcLoadResult>
+  clearDbc(busId): Promise<DbcClearResult>
   onRxBatch(listener): Unsubscribe       // { frames, dropped }
 }
 ```
@@ -38,8 +40,13 @@ Bus results are tagged `{ ok: true, … }` or
 throw through the renderer. Engine codes include `iface_not_found`,
 `iface_down`, `bus_not_found`, `engine_disconnected`.
 
-The renderer never receives Unix-socket frames, file paths, SocketCAN handles,
-or DBC objects.
+`loadDbc` / `clearDbc` return `{ ok: true, message_count }` / `{ ok: true }` or
+`{ ok: false, error: { code, message } }`. Engine codes include
+`path_not_allowed`, `dbc_not_found`, `dbc_invalid`, and `bus_not_found`.
+The renderer forwards a repo-relative fixture path; cantools runs in the engine.
+
+The renderer never receives Unix-socket frames, SocketCAN handles, or DBC
+objects. It may display `decode.name` / a few `decode.signals` from `rx.batch`.
 
 ## IPC channels (main ↔ preload)
 
@@ -50,10 +57,12 @@ or DBC objects.
 | `vanillabus:bus-list` | invoke | `BusListResult` |
 | `vanillabus:bus-open` | invoke | `BusOpenResult` |
 | `vanillabus:bus-close` | invoke | `BusCloseResult` |
+| `vanillabus:dbc-load` | invoke | `DbcLoadResult` |
+| `vanillabus:dbc-clear` | invoke | `DbcClearResult` |
 | `vanillabus:rx-batch` | event | `RxBatch` (`frames`, `dropped`) |
 
 T2 engine IPC (`engine.hello`, `engine.heartbeat`, respawn) is unchanged.
-`rx.batch` is a T5 stub plus T6 `rate_ms` (ID / DLC / data / time / rate). Not Trace.
+`rx.batch` is a T5 stub plus T6 `rate_ms` and optional T7 `decode`. Not Trace.
 
 ## Observing Disconnected
 
@@ -80,9 +89,20 @@ Automated: `npm run test:bus` and `npm run test:bus-bridge`.
 1. Bring up and open vcan0 as above.
 2. Inject frames from another terminal:
    `cansend vcan0 123#11223344` or `cangen vcan0 -n 20 -I 123`.
-3. The **RX stub** list should show ID / DLC / data / time / Rate (ms) within
-   ~200 ms. The first frame per `(busId, can_id, is_eff)` shows `—`; later
-   frames show last inter-arrival milliseconds.
+3. The **RX stub** list should show ID / name / DLC / data / time / Rate (ms) /
+   a couple of signals within ~200 ms. The first frame per
+   `(busId, can_id, is_eff)` shows `—` for rate; unknown IDs show `—` for name.
 
 Automated: `npm run test:rx` and `npm run test:rx-bridge` (skip if vcan0 is not UP).
 Rate median: `npm run test:rate` (synthetic timestamps; optional live vcan).
+
+## DBC load / unpack
+
+1. Open vcan0 as above.
+2. Click **Sample DBC** or **Mux DBC** on the open bus (paths
+   `fixtures/dbc/sample.dbc` / `fixtures/dbc/mux.dbc`).
+3. Inject a known ID, e.g. `cansend vcan0 100#E8035A0A00000000` — the RX stub
+   should show `EngineStatus` and `EngineSpeed=250`.
+4. Inject an unknown ID (`cansend vcan0 7FF#DEADBEEF`) — the row stays raw.
+
+Automated: `npm run test:dbc` and `npm run test:dbc-bridge`.

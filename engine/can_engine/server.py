@@ -18,11 +18,14 @@ from can_engine.framing import (
     encode_message,
 )
 from can_engine.bus import BusError, BusManager
+from can_engine.dbc import DbcError
 from can_engine.protocol import (
     KNOWN_TYPES,
     bus_close_message,
     bus_list_message,
     bus_open_message,
+    dbc_clear_message,
+    dbc_load_message,
     error_message,
     heartbeat_message,
     hello_message,
@@ -112,7 +115,15 @@ async def handle_request(message: dict, manager: BusManager, send) -> None:
             manager.close(payload.get("busId"))
             await send(bus_close_message(msg_id))
             return
-    except BusError as exc:
+        if msg_type == "dbc.load":
+            loaded = manager.load_dbc(payload.get("busId"), payload.get("path"))
+            await send(dbc_load_message(loaded["message_count"], msg_id))
+            return
+        if msg_type == "dbc.clear":
+            manager.clear_dbc(payload.get("busId"))
+            await send(dbc_clear_message(msg_id))
+            return
+    except (BusError, DbcError) as exc:
         await send(error_message(exc.code, exc.message, msg_id))
         return
     except Exception:

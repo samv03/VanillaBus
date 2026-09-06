@@ -1,0 +1,35 @@
+{
+  "dbc": "fixtures/dbc/sample.dbc",
+  "vectors": [
+    {
+      "id": "engine_status_nominal",
+      "can_id": 256,
+      "is_eff": false,
+      "data": "e8035a0a00000000",
+      "name": "EngineStatus",
+      "signals": {
+        "EngineSpeed": 250.0,
+        "EngineTemp": 50,
+        "OilPressure": 20
+      }
+    },
+    {
+      "id": "vehicle_speed_80",
+      "can_id": 257,
+      "is_eff": false,
+      "data": "401f",
+      "name": "VehicleSpeed",
+      "signals": {
+        "Speed": 80.0
+      }
+    },
+    {
+      "id": "unknown_id_raw",
+      "can_id": 2047,
+      "is_eff": false,
+      "data": "deadbeef",
+      "name": null,
+      "signals": null
+    }
+  ]
+}

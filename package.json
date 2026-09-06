@@ -2,7 +2,7 @@
   "name": "vanillabus",
   "productName": "VanillaBus",
   "version": "0.1.0",
-  "description": "SocketCAN-first desktop bus monitor (T6 last inter-arrival rate_ms).",
+  "description": "SocketCAN-first desktop bus monitor (T7 DBC unpack via cantools).",
   "license": "GPL-3.0-or-later",
   "author": "Sam Vinella",
   "private": true,
@@ -21,7 +21,9 @@
     "test:bus-bridge": "tsx --test scripts/test-bus-bridge.ts",
     "test:rx": "python3 scripts/test-rx-batch.py",
     "test:rx-bridge": "tsx --test scripts/test-rx-bridge.ts",
-    "test:rate": "python3 scripts/test-rate-ms.py"
+    "test:rate": "python3 scripts/test-rate-ms.py",
+    "test:dbc": "python3 scripts/test-dbc-unpack.py",
+    "test:dbc-bridge": "tsx --test scripts/test-dbc-bridge.ts"
   },
   "dependencies": {
     "react": "^19.2.8",

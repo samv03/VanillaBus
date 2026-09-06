@@ -83,6 +83,25 @@
         "rate_ms": {
           "description": "Last inter-arrival (Δts_us)/1000 for key (busId, can_id, is_eff). null on the first sample. Not EMA. is_fd is not part of the key until FD is enabled.",
           "type": ["number", "null"]
+        },
+        "decode": {
+          "description": "Optional DBC unpack for this frame. null/absent when no DBC is bound to the busId, the CAN ID is unknown, or decode fails. Unknown IDs still appear as raw frames.",
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["name", "signals"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "DBC message name."
+            },
+            "signals": {
+              "type": "object",
+              "description": "Decoded signal name → JSON-safe value (number, string, or boolean).",
+              "additionalProperties": {
+                "type": ["number", "string", "boolean"]
+              }
+            }
+          }
         }
       }
     },
@@ -248,35 +267,46 @@
           }
         },
         "dbc.load": {
-          "description": "Load a DBC file in the engine (never in the renderer). Not implemented in T2.",
+          "description": "Load one DBC file per open busId via cantools. Path must resolve under the project/fixtures allowlist. Failures are engine.error (path_not_allowed, dbc_not_found, dbc_invalid, bus_not_found).",
           "type": "object",
           "properties": {
             "direction": { "const": "request-response" },
             "request": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["path"],
+              "required": ["busId", "path"],
               "properties": {
-                "path": { "type": "string" }
+                "busId": { "type": "string" },
+                "path": {
+                  "type": "string",
+                  "description": "Absolute or repo-relative path to a .dbc file. Must stay under the project root (fixtures included)."
+                }
               }
             },
             "response": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["ok"],
+              "required": ["ok", "message_count"],
               "properties": {
                 "ok": { "type": "boolean" },
-                "message_count": { "type": "integer" }
+                "message_count": { "type": "integer", "minimum": 0 }
               }
             }
           }
         },
         "dbc.clear": {
-          "description": "Unload any DBC loaded in the engine. Not implemented in T2.",
+          "description": "Unload the DBC bound to an open busId. Idempotent if none is loaded.",
           "type": "object",
           "properties": {
             "direction": { "const": "request-response" },
-            "request": { "type": "object", "additionalProperties": false, "properties": {} },
+            "request": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["busId"],
+              "properties": {
+                "busId": { "type": "string" }
+              }
+            },
             "response": {
               "type": "object",
               "additionalProperties": false,
@@ -288,7 +318,7 @@
           }
         },
         "rx.batch": {
-          "description": "Batched received frames from the engine to main. T5 stub: ≤16 ms or ≤500 frames; rate_ms is null.",
+          "description": "Batched received frames from the engine to main. T5 stub: ≤16 ms or ≤500 frames. T7 may attach optional decode {name, signals} when a DBC is bound. Unknown IDs stay raw.",
           "type": "object",
           "properties": {
             "direction": { "const": "event" },

@@ -1,6 +1,11 @@
 # DBC fixtures
 
-Drop sample `.dbc` files here for later engine-side decode tests.
+Engine-side only. The renderer never parses these files.
 
-T1 does not load or decode DBC files. Decode stays in `vanillabus-engine`,
-never in the Electron renderer.
+| File | Purpose |
+| --- | --- |
+| `sample.dbc` | Classic messages (`EngineStatus` 0x100, `VehicleSpeed` 0x101) |
+| `mux.dbc` | Basic multiplex: `MuxId` + `CoolantTemp` (m0) / `FuelPressure` (m1) |
+| `invalid.dbc` | Allowlisted path that must fail `dbc.load` with `engine.error` |
+
+Unpack vectors live in [`fixtures/golden/`](../golden/).

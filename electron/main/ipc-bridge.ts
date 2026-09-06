@@ -5,6 +5,8 @@ import {
   type BusCloseResult,
   type BusListResult,
   type BusOpenResult,
+  type DbcClearResult,
+  type DbcLoadResult,
   type EngineErrorPayload,
   type EngineInfo,
   type EngineStatus,
@@ -20,6 +22,8 @@ export const VANILLABUS_IPC = {
   busList: 'vanillabus:bus-list',
   busOpen: 'vanillabus:bus-open',
   busClose: 'vanillabus:bus-close',
+  dbcLoad: 'vanillabus:dbc-load',
+  dbcClear: 'vanillabus:dbc-clear',
   rxBatch: 'vanillabus:rx-batch'
 } as const
 
@@ -40,7 +44,7 @@ function broadcast(channel: string, payload: unknown): void {
 }
 
 /**
- * Map engine-host status and bus.list/open/close onto the preload API.
+ * Map engine-host status, bus RPCs, and DBC load/clear onto the preload API.
  * Hello / heartbeat / respawn stay in the supervisor.
  */
 export function registerIpcBridge(supervisor: EngineSupervisor): void {
@@ -80,6 +84,37 @@ export function registerIpcBridge(supervisor: EngineSupervisor): void {
       }
       try {
         return await supervisor.closeBus(busId)
+      } catch (error) {
+        return { ok: false, error: asError(error) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    VANILLABUS_IPC.dbcLoad,
+    async (_event, busId: unknown, path: unknown): Promise<DbcLoadResult> => {
+      if (typeof busId !== 'string' || busId.length === 0) {
+        return { ok: false, error: { code: 'invalid_payload', message: 'loadDbc requires a busId' } }
+      }
+      if (typeof path !== 'string' || path.length === 0) {
+        return { ok: false, error: { code: 'invalid_payload', message: 'loadDbc requires a path' } }
+      }
+      try {
+        return await supervisor.loadDbc(busId, path)
+      } catch (error) {
+        return { ok: false, error: asError(error) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    VANILLABUS_IPC.dbcClear,
+    async (_event, busId: unknown): Promise<DbcClearResult> => {
+      if (typeof busId !== 'string' || busId.length === 0) {
+        return { ok: false, error: { code: 'invalid_payload', message: 'clearDbc requires a busId' } }
+      }
+      try {
+        return await supervisor.clearDbc(busId)
       } catch (error) {
         return { ok: false, error: asError(error) }
       }

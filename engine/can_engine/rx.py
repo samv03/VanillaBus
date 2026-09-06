@@ -5,6 +5,7 @@ from __future__ import annotations
 import queue
 import threading
 import time
+from collections.abc import Callable
 from typing import Any
 
 from can_engine.rate import RateTracker
@@ -64,6 +65,7 @@ def message_to_frame(
         "is_err": bool(getattr(msg, "is_error_frame", False)),
         "dir": "rx",
         "rate_ms": None,
+        "decode": None,
     }
 
 
@@ -77,11 +79,13 @@ class RxPump:
         if_name: str,
         queue_max: int = RX_QUEUE_MAX,
         rates: RateTracker | None = None,
+        decode: Callable[[dict[str, Any]], Any] | None = None,
     ) -> None:
         self._bus = bus
         self._bus_id = bus_id
         self._if_name = if_name
         self._rates = rates if rates is not None else RateTracker()
+        self._decode = decode
         self._queue: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=queue_max)
         self._dropped = 0
         self._dropped_lock = threading.Lock()
@@ -151,4 +155,9 @@ class RxPump:
                 self._rates.attach(frame)
             except Exception:
                 continue
+            if self._decode is not None:
+                try:
+                    self._decode(frame)
+                except Exception:
+                    frame["decode"] = None
             self._enqueue(frame)

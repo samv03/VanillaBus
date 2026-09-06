@@ -23,7 +23,7 @@ body {
 }
 
 .shell {
-  max-width: 52rem;
+  max-width: 64rem;
   margin: 0 auto;
   padding: 3rem 1.5rem 4rem;
 }
@@ -271,6 +271,13 @@ tr:last-child td {
   word-break: break-all;
 }
 
+.bus-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+
 .open-list li:last-child {
   border-bottom: 0;
 }
@@ -305,7 +312,15 @@ tr:last-child td {
 
 .rx-id code,
 .rx-data code,
-.rx-rate {
+.rx-rate,
+.rx-name,
+.rx-signals {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
+}
+
+.rx-signals {
+  font-size: 0.82rem;
+  max-width: 16rem;
+  word-break: break-word;
 }

@@ -3,6 +3,8 @@ import type {
   BusCloseResult,
   BusListResult,
   BusOpenResult,
+  DbcClearResult,
+  DbcLoadResult,
   EngineConnectionEvent,
   EngineInfo,
   RxBatch,
@@ -15,6 +17,8 @@ const ENGINE_EVENT_CHANNEL = 'vanillabus:engine-event'
 const BUS_LIST_CHANNEL = 'vanillabus:bus-list'
 const BUS_OPEN_CHANNEL = 'vanillabus:bus-open'
 const BUS_CLOSE_CHANNEL = 'vanillabus:bus-close'
+const DBC_LOAD_CHANNEL = 'vanillabus:dbc-load'
+const DBC_CLEAR_CHANNEL = 'vanillabus:dbc-clear'
 const RX_BATCH_CHANNEL = 'vanillabus:rx-batch'
 
 function subscribe<T>(channel: string, listener: (payload: T) => void): Unsubscribe {
@@ -29,7 +33,8 @@ function subscribe<T>(channel: string, listener: (payload: T) => void): Unsubscr
 
 /**
  * `window.vanillabus` — typed, narrow bridge.
- * Engine identity comes from engine.hello. No Node, fs, SocketCAN, or DBC.
+ * Engine identity comes from engine.hello. No Node, fs, or SocketCAN.
+ * DBC load/clear are path strings forwarded to the engine (cantools unpacks).
  */
 const api: VanillaBusApi = {
   version: '0.1.0',
@@ -53,6 +58,9 @@ const api: VanillaBusApi = {
   openBus: (name: string, bitrate?: number): Promise<BusOpenResult> =>
     ipcRenderer.invoke(BUS_OPEN_CHANNEL, name, bitrate),
   closeBus: (busId: string): Promise<BusCloseResult> => ipcRenderer.invoke(BUS_CLOSE_CHANNEL, busId),
+  loadDbc: (busId: string, path: string): Promise<DbcLoadResult> =>
+    ipcRenderer.invoke(DBC_LOAD_CHANNEL, busId, path),
+  clearDbc: (busId: string): Promise<DbcClearResult> => ipcRenderer.invoke(DBC_CLEAR_CHANNEL, busId),
   onRxBatch: (listener): Unsubscribe => subscribe<RxBatch>(RX_BATCH_CHANNEL, listener)
 }
 

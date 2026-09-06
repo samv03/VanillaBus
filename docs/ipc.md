@@ -35,16 +35,17 @@ T3+ maps status and bus commands onto `window.vanillabus` (see
 | `bus.list` | request/response | `{ "interfaces": [{ "name", "kind", "state": "up"\|"down" }] }` |
 | `bus.open` | request `{ "name", "bitrate"? }` → `{ "busId" }` | Bind only if the iface exists and is UP. `bitrate` optional; ignored for vcan. Missing/down → `engine.error` (`iface_not_found` / `iface_down`). Never `ip link set up`. |
 | `bus.close` | request `{ "busId" }` → `{ "ok": true }` | Reopen after close is allowed (new `busId`). |
-| `rx.batch` | engine event | `{ "frames": [FrameEvent, …], "dropped": <int> }` — after `bus.open`, ≤16 ms or ≤500 frames. `rate_ms` is last inter-arrival ms, or `null` on the first sample per `(busId, can_id, is_eff)`. |
+| `rx.batch` | engine event | `{ "frames": [FrameEvent, …], "dropped": <int> }` — after `bus.open`, ≤16 ms or ≤500 frames. `rate_ms` is last inter-arrival ms, or `null` on the first sample per `(busId, can_id, is_eff)`. Known IDs may include `decode: { name, signals }` when a DBC is bound. |
+| `dbc.load` | request `{ "busId", "path" }` → `{ "ok": true, "message_count" }` | One DBC per open busId, loaded with cantools. Path must resolve under the project/fixtures allowlist. Failures: `engine.error` (`path_not_allowed`, `dbc_not_found`, `dbc_invalid`, `bus_not_found`). |
+| `dbc.clear` | request `{ "busId" }` → `{ "ok": true }` | Unload the DBC for that bus. Idempotent if none is loaded. |
 
 Unknown request types get `engine.error` with `code: "not_implemented"`.
 
 See [docs/privileges.md](privileges.md) for pre-UP / no-root rules.
 
-## Reserved (schema only; no DBC/TX runtime in T6)
+## Reserved (schema only; no TX runtime in T7)
 
-`dbc.load` · `dbc.clear` · `tx.send` ·
-`tx.cyclic.start` · `tx.cyclic.stop`
+`tx.send` · `tx.cyclic.start` · `tx.cyclic.stop`
 
 ## FrameEvent (`rx.batch` / later `tx.*`)
 
@@ -53,6 +54,10 @@ See [docs/privileges.md](privileges.md) for pre-UP / no-root rules.
 software clock), `rate_ms` = last `(Δts_us)/1000` for key `(busId, can_id,
 is_eff)`, or `null` until a second sample. Not EMA. `is_fd` is not part of the
 key until FD is enabled. Rate state for a `busId` is cleared on `bus.close`.
+
+`decode` is optional: `{ "name": "<DBC message>", "signals": { "<sig>": <value> } }`
+when a DBC is bound and the CAN ID is known. Unknown IDs (or decode failures)
+keep the raw frame and set `decode` to `null`. The renderer never parses DBC.
 
 If the engine RX queue backs up, oldest frames are dropped and `dropped` counts
 them. This is a raw stub, not production Trace (T9).

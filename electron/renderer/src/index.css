@@ -70,3 +70,11 @@ dd {
   margin: 0;
   font-variant-numeric: tabular-nums;
 }
+
+.status-ok {
+  color: #8fd4a8;
+}
+
+.status-off {
+  color: #e08b8b;
+}

@@ -1,23 +1,15 @@
 import { useEffect, useState, type ReactElement } from 'react'
-import { DISCONNECTED_ENGINE_INFO, type BusInterface, type EngineInfo, type FrameEvent } from '../../../shared/engine'
+import { DISCONNECTED_ENGINE_INFO, type BusInterface, type EngineInfo } from '../../../shared/engine'
 import { parseAppTab, type AppTab } from '../../../shared/appTabs'
 import { GraphScreen } from './screens/GraphScreen'
 import { TraceScreen } from './screens/TraceScreen'
 import { TransmitScreen } from './screens/TransmitScreen'
 import { AppShell } from './shell/AppShell'
 import { SharedHeader } from './shell/SharedHeader'
-import {
-  formatStatus,
-  type BusActionStatus,
-  type EventLogItem,
-  type OpenedBus
-} from './shell/types'
+import { type BusActionStatus, type OpenedBus } from './shell/types'
+import { useTraceModel } from './trace/useTraceModel'
 
 const SAMPLE_DBC = 'fixtures/dbc/sample.dbc'
-
-function formatTime(date: Date): string {
-  return date.toISOString().slice(11, 19)
-}
 
 function readTab(): AppTab {
   return parseAppTab(window.location.hash)
@@ -25,20 +17,16 @@ function readTab(): AppTab {
 
 export function App(): ReactElement {
   const api = window.vanillabus
-  const bridgeVersion = api?.version ?? 'unavailable'
   const [tab, setTab] = useState<AppTab>(readTab)
   const [info, setInfo] = useState<EngineInfo>(DISCONNECTED_ENGINE_INFO)
-  const [events, setEvents] = useState<EventLogItem[]>([])
   const [interfaces, setInterfaces] = useState<readonly BusInterface[]>([])
   const [opened, setOpened] = useState<OpenedBus[]>([])
   const [selectedBus, setSelectedBus] = useState('vcan0')
-  const [manualName, setManualName] = useState('vcan0')
   const [dbcPath, setDbcPath] = useState(SAMPLE_DBC)
   const [busStatus, setBusStatus] = useState<BusActionStatus>({ kind: 'idle' })
   const [listing, setListing] = useState(false)
   const [connecting, setConnecting] = useState(false)
-  const [rxFrames, setRxFrames] = useState<FrameEvent[]>([])
-  const [rxDropped, setRxDropped] = useState(0)
+  const trace = useTraceModel()
 
   useEffect(() => {
     const onHashChange = (): void => {
@@ -59,29 +47,18 @@ export function App(): ReactElement {
     }
     void api.getEngineInfo().then(setInfo)
     const offStatus = api.onEngineStatus(setInfo)
-    const offEvent = api.onEngineEvent((event) => {
-      setEvents((previous) => [
-        ...previous.slice(-9),
-        { at: formatTime(new Date()), type: event.type }
-      ])
-    })
-    const offRx = api.onRxBatch((batch) => {
-      setRxDropped(batch.dropped)
-      setRxFrames((previous) => [...batch.frames, ...previous].slice(0, 80))
-    })
+    const offRx = api.onRxBatch(trace.appendBatch)
     return () => {
       offStatus()
-      offEvent()
       offRx()
     }
-  }, [api])
+  }, [api, trace.appendBatch])
 
   useEffect(() => {
     if (!info.connected) {
       setInterfaces([])
       setOpened([])
-      setRxFrames([])
-      setRxDropped(0)
+      trace.reset()
     }
   }, [info.connected])
 
@@ -131,7 +108,6 @@ export function App(): ReactElement {
       }
       setOpened((previous) => [...previous, { busId: result.busId, name, dbc: null }])
       setSelectedBus(name)
-      setManualName(name)
       setBusStatus({ kind: 'ok', text: `Opened ${name} → busId ${result.busId}` })
     } finally {
       setConnecting(false)
@@ -157,21 +133,6 @@ export function App(): ReactElement {
       kind: 'ok',
       text: `Loaded ${path} (${result.message_count} messages) on ${busId}`
     })
-  }
-
-  async function clearNamedDbc(busId: string): Promise<void> {
-    if (!api) {
-      return
-    }
-    const result = await api.clearDbc(busId)
-    if (!result.ok) {
-      setBusStatus({ kind: 'error', error: result.error })
-      return
-    }
-    setOpened((previous) =>
-      previous.map((item) => (item.busId === busId ? { ...item, dbc: null } : item))
-    )
-    setBusStatus({ kind: 'ok', text: `Cleared DBC on ${busId}` })
   }
 
   async function closeNamed(busId: string): Promise<void> {
@@ -236,10 +197,7 @@ export function App(): ReactElement {
           engineConnected={connected}
           interfaces={interfaces}
           selectedBus={selectedBus}
-          onSelectBus={(name) => {
-            setSelectedBus(name)
-            setManualName(name)
-          }}
+          onSelectBus={setSelectedBus}
           busConnected={busConnected}
           onConnect={() => void headerConnect()}
           onDisconnect={() => void headerDisconnect()}
@@ -253,27 +211,7 @@ export function App(): ReactElement {
         />
       }
     >
-      {tab === 'trace' ? (
-        <TraceScreen
-          bridgeVersion={bridgeVersion}
-          info={info}
-          events={events}
-          interfaces={interfaces}
-          opened={opened}
-          manualName={manualName}
-          onManualNameChange={setManualName}
-          listing={listing}
-          onRefreshList={() => void refreshList()}
-          onOpenNamed={(name) => void openNamed(name)}
-          onCloseNamed={(busId) => void closeNamed(busId)}
-          onLoadDbc={(busId, path) => void loadNamedDbc(busId, path)}
-          onClearDbc={(busId) => void clearNamedDbc(busId)}
-          busStatusText={formatStatus(busStatus)}
-          busStatusError={busStatus.kind === 'error'}
-          rxFrames={rxFrames}
-          rxDropped={rxDropped}
-        />
-      ) : null}
+      {tab === 'trace' ? <TraceScreen model={trace} /> : null}
       {tab === 'graph' ? <GraphScreen /> : null}
       {tab === 'transmit' ? <TransmitScreen /> : null}
     </AppShell>

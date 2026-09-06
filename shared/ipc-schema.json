@@ -100,6 +100,13 @@
               "additionalProperties": {
                 "type": ["number", "string", "boolean"]
               }
+            },
+            "units": {
+              "type": "object",
+              "description": "Optional signal name → unit string when the DBC defines one.",
+              "additionalProperties": {
+                "type": "string"
+              }
             }
           }
         }
@@ -318,7 +325,7 @@
           }
         },
         "rx.batch": {
-          "description": "Batched received frames from the engine to main. T5 stub: ≤16 ms or ≤500 frames. T7 may attach optional decode {name, signals} when a DBC is bound. Unknown IDs stay raw.",
+          "description": "Batched received frames from the engine to main. ≤16 ms or ≤500 frames. T7 may attach optional decode {name, signals, units} when a DBC is bound. Unknown IDs stay raw.",
           "type": "object",
           "properties": {
             "direction": { "const": "event" },

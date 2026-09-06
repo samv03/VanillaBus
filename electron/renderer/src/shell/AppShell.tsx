@@ -16,7 +16,12 @@ export function AppShell({ tab, onTabChange, header, children }: AppShellProps):
         <TopNav tab={tab} onTabChange={onTabChange} />
         {header}
       </div>
-      <main className="app-body" id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`}>
+      <main
+        className={`app-body app-body-${tab}`}
+        id={`panel-${tab}`}
+        role="tabpanel"
+        aria-labelledby={`tab-${tab}`}
+      >
         {children}
       </main>
     </div>

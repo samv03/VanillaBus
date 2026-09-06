@@ -137,7 +137,13 @@ def unpack_frame(database: Any, frame: dict[str, Any]) -> dict[str, Any] | None:
     signals: dict[str, int | float | str | bool] = {}
     for name, value in decoded.items():
         signals[str(name)] = jsonable_signal(value)
-    return {"name": str(message.name), "signals": signals}
+    units: dict[str, str] = {}
+    for signal in getattr(message, "signals", None) or []:
+        unit = getattr(signal, "unit", None)
+        sig_name = getattr(signal, "name", None)
+        if isinstance(sig_name, str) and isinstance(unit, str) and unit:
+            units[sig_name] = unit
+    return {"name": str(message.name), "signals": signals, "units": units}
 
 
 class DbcStore:

@@ -4,16 +4,17 @@ SocketCAN-first desktop bus monitor. T8 is a dedicated app shell: top tabs
 **Trace | Graph | Transmit** and one shared bus/DBC header (dropdown,
 Connect/Disconnect, DBC path + Load, status pills). Tab state is the URL
 hash (`#trace`, `#graph`, `#transmit`); switching tabs does not tear down
-the engine. Trace still hosts the T5–T7 RX stub. Graph and Transmit are
-placeholders (T11 / T12–T13). This is **not** production Trace (T9).
+the engine. T9 replaces the T5 RX stub with a **virtualized Trace**
+(`react-virtuoso`): filter, Pause, Clear, scroll lock, expandable DBC
+signals, and a bounded 20_000-frame drop-oldest ring. Graph and Transmit
+are placeholders (T11 / T12–T13).
 
-T5 is a throwaway raw RX stub: after `bus.open`, `vanillabus-engine` recv()s
-on that python-can bus and emits `rx.batch` (≤16 ms or ≤500 frames). T6
-fills `rate_ms` as the last inter-arrival (`(Δts_us)/1000`) per
-`(busId, can_id, is_eff)` — not EMA. T7 binds one DBC per `busId`
-(`dbc.load` / `dbc.clear`) and unpacks known IDs with **cantools** onto
-`decode` (`name` + `signals`). Unknown IDs still flow through RX as raw
-frames.
+After `bus.open`, `vanillabus-engine` recv()s on that python-can bus and
+emits `rx.batch` (≤16 ms or ≤500 frames). T6 fills `rate_ms` as the last
+inter-arrival (`(Δts_us)/1000`) per `(busId, can_id, is_eff)` — not EMA.
+T7 binds one DBC per `busId` (`dbc.load` / `dbc.clear`) and unpacks known
+IDs with **cantools** onto `decode` (`name` + `signals` + `units`). Unknown
+IDs still flow through RX as raw frames.
 
 ## Requirements
 
@@ -81,10 +82,9 @@ npm run dev
 `npm run dev` starts Vite, opens an Electron window titled **VanillaBus**, and
 spawns `python3 -m can_engine --ipc <socket>`. After `engine.hello` the shared
 header shows **Engine Connected**. The same header is on Trace, Graph, and
-Transmit. Use the bus dropdown + **Connect**, or on Trace **List buses** /
-**Open**, to call `bus.list` / `bus.open`. **Load** (header DBC path) or
-**Sample DBC** / **Mux DBC** call `dbc.load`. Inject frames on the open iface
-and they appear in the Trace **RX stub** list.
+Transmit. Use the bus dropdown + **Connect** to call `bus.list` / `bus.open`.
+**Load** (header DBC path) calls `dbc.load`. Inject frames on the open iface
+and they appear in the virtualized Trace table.
 
 The IPC socket lives under `$XDG_RUNTIME_DIR/vanillabus/` (mode 0600), or a
 private 0700 `mkstemp` directory — not a world-writable predictable `/tmp` path.
@@ -108,11 +108,21 @@ python3 scripts/test-dbc-unpack.py    # T7 golden unpack + mux + allowlist
 # or: npm run test:dbc
 npm run test:dbc-bridge               # parseFrameEvent decode + supervisor load/clear (tsx)
 npm run test:shell                    # T8 hash tabs — plain node, no tsx / --test
+npm run test:trace                    # T9 ring / filter / N2 first-paint (tsx)
 ```
 
 `test:shell` runs `node scripts/test-shell-tabs.mjs` (assert + `shared/appTabs.mjs`,
 prints `PASS`). It is only a diagnostic for the hash helpers. Bridge tests still
 use tsx and need Node 20+.
+
+`test:trace` always instruments N2 first-paint on a synthetic 2 kfps stream
+(32-frame / 16 ms batches, same cadence as the engine). It appends to the
+20_000-frame ring and paints only the visible window (~24 rows) + a tiny HTML
+proxy — not all rows. First-paint and every subsequent batch must stay
+**<50 ms**. If `vcan0` is UP it also injects a 2 kfps burst and times the
+same paint path on the first `rx.batch`. If not, it prints
+`SKIP vcan0 trace N2` and still exits 0. In `npm run dev`, the first live
+batch also logs `[trace-n2] first-paint … ms` to the renderer console.
 
 `test-rx-batch.py` always checks FrameEvent mapping, drop-oldest, and ≤500
 batching (no host CAN required). If `vcan0` is UP it opens the iface, injects
@@ -149,15 +159,16 @@ from the test.
 
 ```bash
 sudo ./scripts/setup-vcan.sh
-# in the app: List buses → Open vcan0 → Sample DBC
+# in the app: Connect vcan0 → Load fixtures/dbc/sample.dbc
 cansend vcan0 100#E8035A0A00000000   # EngineStatus (decoded)
 cansend vcan0 7FF#DEADBEEF           # unknown ID (raw)
 cangen vcan0 -I 123 -L 4 -D 11223344 -n 50 -g 2
 ```
 
-Frames should show in the RX stub (ID, name, DLC, data, time, Rate ms,
-signals) within ~100–200 ms. Known IDs show the DBC message name; unknown
-IDs stay raw.
+Frames should show in Trace (Time, Bus, ID, Name, DLC, Data, Rate ms, Dir)
+within ~100–200 ms. Known IDs show the DBC message name; expand the row for
+signal name / value / unit. Unknown IDs stay raw. The UI ring holds at most
+**20_000** frames and drops the oldest.
 
 ## Helper scripts
 
@@ -172,7 +183,7 @@ sudo ./scripts/setup-vcan.sh          # vcan0 UP for bus.open + RX
 package.json
 electron/main/          # window + engine spawn / UDS client + ipc-bridge
 electron/preload/       # window.vanillabus (status + bus + DBC + onRxBatch)
-electron/renderer/      # React shell (tabs + shared header) + Trace RX stub
+electron/renderer/      # React shell (tabs + shared header) + virtualized Trace
 engine/pyproject.toml   # vanillabus-engine (python-can + cantools)
 engine/can_engine/      # framing server + SocketCAN + RX pump + DBC unpack
 shared/engine.ts        # renderer/host types

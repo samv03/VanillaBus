@@ -96,6 +96,8 @@ export type SignalValue = number | string | boolean
 export type FrameDecode = {
   readonly name: string
   readonly signals: Readonly<Record<string, SignalValue>>
+  /** Signal name → unit when the DBC defines one. Empty when none. */
+  readonly units: Readonly<Record<string, string>>
 }
 
 /** Engine FrameEvent on rx.batch. rate_ms is last (Δts_us)/1000, or null. */
@@ -248,7 +250,7 @@ function parseFrameDecode(raw: unknown): FrameDecode | null {
   const signals: Record<string, SignalValue> = {}
   if (record.signals !== null && record.signals !== undefined) {
     if (typeof record.signals !== 'object' || Array.isArray(record.signals)) {
-      return { name: record.name, signals }
+      return { name: record.name, signals, units: parseSignalUnits(record.units) }
     }
     for (const [key, value] of Object.entries(record.signals as Record<string, unknown>)) {
       if (typeof value === 'number' && Number.isFinite(value)) {
@@ -258,7 +260,20 @@ function parseFrameDecode(raw: unknown): FrameDecode | null {
       }
     }
   }
-  return { name: record.name, signals }
+  return { name: record.name, signals, units: parseSignalUnits(record.units) }
+}
+
+function parseSignalUnits(raw: unknown): Record<string, string> {
+  const units: Record<string, string> = {}
+  if (raw === null || raw === undefined || typeof raw !== 'object' || Array.isArray(raw)) {
+    return units
+  }
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value === 'string' && value.length > 0) {
+      units[key] = value
+    }
+  }
+  return units
 }
 
 export function parseRxBatch(raw: unknown): RxBatch | null {

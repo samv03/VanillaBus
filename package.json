@@ -2,7 +2,7 @@
   "name": "vanillabus",
   "productName": "VanillaBus",
   "version": "0.1.0",
-  "description": "SocketCAN-first desktop bus monitor (T2 IPC hello / heartbeat).",
+  "description": "SocketCAN-first desktop bus monitor (T3 preload bridge).",
   "license": "GPL-3.0-or-later",
   "author": "Sam Vinella",
   "private": true,
@@ -15,7 +15,8 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc -b --pretty false",
-    "test:ipc": "python3 scripts/test-ipc-hello.py"
+    "test:ipc": "python3 scripts/test-ipc-hello.py",
+    "test:bridge": "tsx --test scripts/test-preload-bridge.ts"
   },
   "dependencies": {
     "react": "^19.2.8",
@@ -28,6 +29,7 @@
     "@vitejs/plugin-react": "^5.1.4",
     "electron": "^37.3.1",
     "electron-vite": "^5.0.0",
+    "tsx": "^4.20.5",
     "typescript": "^5.8.3",
     "vite": "^7.3.6"
   }

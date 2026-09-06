@@ -1,6 +1,7 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { join } from 'node:path'
 import { EngineSupervisor } from './engineSupervisor'
+import { registerIpcBridge } from './ipc-bridge'
 
 const WINDOW_TITLE = 'VanillaBus'
 const supervisor = new EngineSupervisor()
@@ -40,18 +41,8 @@ function createWindow(): void {
   }
 }
 
-function broadcastEngineStatus(): void {
-  const status = supervisor.getStatus()
-  for (const window of BrowserWindow.getAllWindows()) {
-    window.webContents.send('vanillabus:engine-status', status)
-  }
-}
-
 app.whenReady().then(() => {
-  ipcMain.handle('vanillabus:engine-status', () => supervisor.getStatus())
-  supervisor.onStatus(() => {
-    broadcastEngineStatus()
-  })
+  registerIpcBridge(supervisor)
   supervisor.start()
   createWindow()
 

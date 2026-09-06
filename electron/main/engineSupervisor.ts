@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { delimiter, join } from 'node:path'
-import { EngineClient, type EngineHello, type EngineStatus } from './engineClient'
+import type { EngineHello, EngineStatus } from '../../shared/engine'
+import { EngineClient } from './engineClient'
 import { createIpcSocketPath } from './ipcPath'
 
 const RESTART_DELAY_MS = 750
@@ -39,6 +40,12 @@ export class EngineSupervisor {
 
   getStatus(): EngineStatus {
     return this.status
+  }
+
+  /** Live engine PID, or null if no child is running. Used by the disconnect test. */
+  getEnginePid(): number | null {
+    const pid = this.child?.pid
+    return typeof pid === 'number' ? pid : null
   }
 
   start(): void {

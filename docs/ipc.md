@@ -2,6 +2,8 @@
 
 Electron **main** talks to `vanillabus-engine` over a Unix domain socket.
 The renderer never sees this socket and must not open SocketCAN or parse DBC.
+T3 maps hello / connection status onto `window.vanillabus` (see
+[docs/preload.md](preload.md)).
 
 ## Transport
 

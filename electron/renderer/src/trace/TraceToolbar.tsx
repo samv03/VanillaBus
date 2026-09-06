@@ -8,6 +8,7 @@ type TraceToolbarProps = {
   readonly scrollLock: boolean
   readonly onScrollLockChange: (value: boolean) => void
   readonly onClear: () => void
+  readonly onDemoTraffic?: () => void
   readonly size: number
   readonly capacity: number
   readonly filteredCount: number
@@ -23,6 +24,7 @@ export function TraceToolbar({
   scrollLock,
   onScrollLockChange,
   onClear,
+  onDemoTraffic,
   size,
   capacity,
   filteredCount,
@@ -59,6 +61,11 @@ export function TraceToolbar({
           <TrashIcon />
           Clear
         </button>
+        {onDemoTraffic ? (
+          <button type="button" className="trace-tool-btn" onClick={onDemoTraffic}>
+            Demo traffic
+          </button>
+        ) : null}
         <div className="trace-scroll-lock">
           <LockIcon />
           <span>Scroll lock</span>

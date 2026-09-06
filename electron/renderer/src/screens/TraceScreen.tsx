@@ -1,6 +1,7 @@
 import { useMemo, type ReactElement } from 'react'
 import { collectMatchingIndices, visibleCount } from '../../../../shared/traceFilter'
 import { TRACE_RING_CAPACITY } from '../../../../shared/traceRing'
+import { buildDemoBatch } from '../trace/demoTraffic'
 import { TraceTable } from '../trace/TraceTable'
 import { TraceToolbar } from '../trace/TraceToolbar'
 import type { TraceModel } from '../trace/useTraceModel'
@@ -24,6 +25,7 @@ export function TraceScreen({ model }: TraceScreenProps): ReactElement {
         scrollLock={model.scrollLock}
         onScrollLockChange={model.setScrollLock}
         onClear={model.clear}
+        onDemoTraffic={import.meta.env.DEV ? () => model.appendBatch(buildDemoBatch()) : undefined}
         size={model.size}
         capacity={model.capacity}
         filteredCount={filteredCount}

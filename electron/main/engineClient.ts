@@ -1,16 +1,8 @@
 import { createConnection, type Socket } from 'node:net'
+import type { EngineHello } from '../../shared/engine'
 import { encodeMessage, FrameDecoder, ProtocolError } from './framing'
 
-export type EngineHello = {
-  name: string
-  version: string
-  backends: string[]
-}
-
-export type EngineStatus = {
-  connected: boolean
-  hello: EngineHello | null
-}
+export type { EngineHello, EngineStatus } from '../../shared/engine'
 
 export type EngineMessage = {
   type: string

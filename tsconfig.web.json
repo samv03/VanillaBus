@@ -11,5 +11,6 @@
     "noEmit": true,
     "isolatedModules": true
   },
-  "include": ["electron/renderer/**/*", "electron/preload/*.d.ts"]
+  "include": ["electron/renderer/**/*", "electron/preload/*.d.ts"],
+  "references": [{ "path": "./tsconfig.shared.json" }]
 }

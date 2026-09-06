@@ -1,34 +1,46 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type {
+  EngineConnectionEvent,
+  EngineInfo,
+  Unsubscribe,
+  VanillaBusApi
+} from '../../shared/engine'
 
-export type EngineHello = {
-  name: string
-  version: string
-  backends: string[]
+const ENGINE_INFO_CHANNEL = 'vanillabus:engine-info'
+const ENGINE_EVENT_CHANNEL = 'vanillabus:engine-event'
+
+function subscribe<T>(channel: string, listener: (payload: T) => void): Unsubscribe {
+  const wrapped = (_event: unknown, payload: T): void => {
+    listener(payload)
+  }
+  ipcRenderer.on(channel, wrapped)
+  return () => {
+    ipcRenderer.removeListener(channel, wrapped)
+  }
 }
-
-export type EngineStatus = {
-  connected: boolean
-  hello: EngineHello | null
-}
-
-type StatusListener = (status: EngineStatus) => void
 
 /**
- * Narrow preload surface. Engine connection status comes from engine.hello.
- * SocketCAN / DBC stay out of the renderer.
+ * `window.vanillabus` — typed, narrow bridge.
+ * Engine identity comes from engine.hello. No Node, fs, SocketCAN, or DBC.
  */
-const api = {
+const api: VanillaBusApi = {
   version: '0.1.0',
-  getEngineStatus: (): Promise<EngineStatus> => ipcRenderer.invoke('vanillabus:engine-status'),
-  onEngineStatus: (listener: StatusListener): (() => void) => {
-    const wrapped = (_event: unknown, status: EngineStatus): void => {
-      listener(status)
-    }
-    ipcRenderer.on('vanillabus:engine-status', wrapped)
-    return () => {
-      ipcRenderer.removeListener('vanillabus:engine-status', wrapped)
-    }
-  }
-} as const
+  getEngineInfo: (): Promise<EngineInfo> => ipcRenderer.invoke(ENGINE_INFO_CHANNEL),
+  onEngineStatus: (listener): Unsubscribe => subscribe<EngineInfo>(ENGINE_INFO_CHANNEL, listener),
+  onEngineEvent: (listener): Unsubscribe =>
+    subscribe<EngineConnectionEvent>(ENGINE_EVENT_CHANNEL, listener),
+  onConnected: (listener): Unsubscribe =>
+    subscribe<EngineConnectionEvent>(ENGINE_EVENT_CHANNEL, (event) => {
+      if (event.type === 'connected') {
+        listener(event.info)
+      }
+    }),
+  onDisconnected: (listener): Unsubscribe =>
+    subscribe<EngineConnectionEvent>(ENGINE_EVENT_CHANNEL, (event) => {
+      if (event.type === 'disconnected') {
+        listener(event.info)
+      }
+    })
+}
 
 contextBridge.exposeInMainWorld('vanillabus', api)

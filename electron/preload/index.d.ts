@@ -1,22 +1,18 @@
-export interface EngineHello {
-  readonly name: string
-  readonly version: string
-  readonly backends: string[]
-}
+import type { VanillaBusApi } from '../../shared/engine'
 
-export interface EngineStatus {
-  readonly connected: boolean
-  readonly hello: EngineHello | null
-}
-
-export interface VanillaBusApi {
-  readonly version: string
-  getEngineStatus: () => Promise<EngineStatus>
-  onEngineStatus: (listener: (status: EngineStatus) => void) => () => void
-}
+export type {
+  EngineConnectionEvent,
+  EngineConnectionEventType,
+  EngineHello,
+  EngineInfo,
+  EngineStatus,
+  Unsubscribe,
+  VanillaBusApi
+} from '../../shared/engine'
 
 declare global {
   interface Window {
+    /** Narrow context-bridge API. See docs/preload.md. */
     vanillabus: VanillaBusApi
   }
 }

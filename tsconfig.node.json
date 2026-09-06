@@ -11,5 +11,11 @@
     "types": ["node"],
     "outDir": "./out/tsconfig-node"
   },
-  "include": ["electron/main/**/*", "electron/preload/**/*", "electron.vite.config.ts"]
+  "include": [
+    "electron/main/**/*",
+    "electron/preload/**/*",
+    "scripts/test-preload-bridge.ts",
+    "electron.vite.config.ts"
+  ],
+  "references": [{ "path": "./tsconfig.shared.json" }]
 }

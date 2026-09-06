@@ -42,15 +42,61 @@ h1 {
   font-weight: 600;
 }
 
+h2 {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8aa0b3;
+}
+
 .lede {
   margin: 0;
   color: #c4d0da;
 }
 
+code {
+  font-family: 'IBM Plex Mono', 'SFMono-Regular', ui-monospace, monospace;
+  font-size: 0.92em;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 1.75rem 0 0;
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+}
+
+.badge-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.badge-ok {
+  color: #8fd4a8;
+  border-color: #2f5d42;
+  background: #163022;
+}
+
+.badge-off {
+  color: #f0a0a0;
+  border-color: #6b3333;
+  background: #2a1616;
+}
+
 dl {
   display: grid;
   gap: 0.75rem;
-  margin: 2rem 0 0;
+  margin: 1.25rem 0 0;
 }
 
 dl div {
@@ -71,10 +117,44 @@ dd {
   font-variant-numeric: tabular-nums;
 }
 
-.status-ok {
+.events {
+  margin-top: 2rem;
+}
+
+.events ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid #2a343d;
+  background: #161c21;
+}
+
+.events li {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.55rem 0.85rem;
+  border-bottom: 1px solid #2a343d;
+  font-variant-numeric: tabular-nums;
+}
+
+.events li:last-child {
+  border-bottom: 0;
+}
+
+.event-connected {
   color: #8fd4a8;
 }
 
-.status-off {
-  color: #e08b8b;
+.event-disconnected {
+  color: #f0a0a0;
+}
+
+.muted,
+.hint {
+  color: #8aa0b3;
+}
+
+.hint {
+  margin: 0.85rem 0 0;
+  font-size: 0.85rem;
 }

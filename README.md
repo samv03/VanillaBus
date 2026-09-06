@@ -24,8 +24,32 @@ sudo apt update
 sudo apt install -y can-utils iproute2 build-essential linux-headers-$(uname -r)
 ```
 
-Also need **Node.js 20+** (`package.json` `engines.node`) and **Python 3.10+**
-(pip). Older Node cannot parse `tsx/dist/cli.mjs` (`Unexpected token '.'`).
+**Node.js 20+ is required** on Ubuntu hosts (`package.json` `engines.node`).
+Electron, Vite, and `tsx` all need it. **Python 3.10+** (pip) is also
+required.
+
+Ubuntu distro Node is often far older than 18. On those hosts:
+
+- `tsx` crashes: `SyntaxError: Unexpected token '.'` inside `tsx/dist/cli.mjs`
+- `node --test` fails: `node: bad option: --test` (the test runner landed in 18)
+
+Install **Node 20 LTS** with nvm or NodeSource before `npm run dev` / typecheck /
+bridge tests:
+
+```bash
+# nvm
+curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+# new shell, then:
+nvm install 20
+nvm use 20
+
+# or NodeSource (Ubuntu)
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+`npm run test:shell` is a tiny diagnostic (`node scripts/test-shell-tabs.mjs`)
+and does not use `tsx` or `node --test`. The full app still needs Node 20.
 
 VanillaBus talks to Linux SocketCAN first (`can0`, `vcan0`, …). Vendor SDKs
 (Peak, Kvaser, …) are out of scope.
@@ -83,11 +107,12 @@ python3 scripts/test-rate-ms.py       # T6 rate_ms median (synthetic + optional 
 python3 scripts/test-dbc-unpack.py    # T7 golden unpack + mux + allowlist
 # or: npm run test:dbc
 npm run test:dbc-bridge               # parseFrameEvent decode + supervisor load/clear (tsx)
-npm run test:shell                    # T8 hash tabs — node --test, no tsx
+npm run test:shell                    # T8 hash tabs — plain node, no tsx / --test
 ```
 
-`test:shell` is plain `node --test scripts/test-shell-tabs.mjs` and imports
-`shared/appTabs.mjs` (no tsx). Bridge tests still use tsx and need Node 20+.
+`test:shell` runs `node scripts/test-shell-tabs.mjs` (assert + `shared/appTabs.mjs`,
+prints `PASS`). It is only a diagnostic for the hash helpers. Bridge tests still
+use tsx and need Node 20+.
 
 `test-rx-batch.py` always checks FrameEvent mapping, drop-oldest, and ≤500
 batching (no host CAN required). If `vcan0` is UP it opens the iface, injects
@@ -152,7 +177,7 @@ engine/pyproject.toml   # vanillabus-engine (python-can + cantools)
 engine/can_engine/      # framing server + SocketCAN + RX pump + DBC unpack
 shared/engine.ts        # renderer/host types
 shared/appTabs.ts       # typed re-export of Trace | Graph | Transmit helpers
-shared/appTabs.mjs      # same helpers for node --test (no tsx)
+shared/appTabs.mjs      # same helpers for plain `node` (no tsx / --test)
 shared/ipc-schema.json  # locked IPC types
 scripts/                # check-host, setup-vcan, hello + bus + rx + dbc tests
 fixtures/dbc/           # sample + mux + invalid DBC (engine-side only)

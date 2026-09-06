@@ -45,6 +45,13 @@ function formatTsUs(tsUs: number): string {
   return new Date(tsUs / 1000).toISOString().slice(11, 23)
 }
 
+function formatRateMs(rateMs: number | null): string {
+  if (rateMs === null || !Number.isFinite(rateMs)) {
+    return '—'
+  }
+  return rateMs.toFixed(1)
+}
+
 export function App(): ReactElement {
   const api = window.vanillabus
   const bridgeVersion = api?.version ?? 'unavailable'
@@ -146,12 +153,12 @@ export function App(): ReactElement {
   return (
     <main className="shell">
       <header>
-        <p className="eyebrow">T5 raw RX stub</p>
+        <p className="eyebrow">T6 last inter-arrival</p>
         <h1>VanillaBus</h1>
         <p className="lede">
           After <code>bus.open</code> the engine recv()s on that SocketCAN bus and
-          forwards <code>rx.batch</code> here. This list is a throwaway proof — not
-          Trace. The renderer never binds CAN.
+          forwards <code>rx.batch</code> with last inter-arrival <code>rate_ms</code>.
+          This list is a throwaway proof — not Trace. The renderer never binds CAN.
         </p>
       </header>
 
@@ -302,6 +309,7 @@ export function App(): ReactElement {
                 <tr>
                   <th>Time</th>
                   <th>ID</th>
+                  <th>Rate (ms)</th>
                   <th>DLC</th>
                   <th>Data</th>
                 </tr>
@@ -315,6 +323,7 @@ export function App(): ReactElement {
                     <td className="rx-id">
                       <code>{formatCanId(frame.can_id, frame.is_eff)}</code>
                     </td>
+                    <td className="rx-rate">{formatRateMs(frame.rate_ms)}</td>
                     <td>{frame.dlc}</td>
                     <td className="rx-data">
                       <code>{formatDataHex(frame.data)}</code>
@@ -326,8 +335,9 @@ export function App(): ReactElement {
           </div>
         )}
         <p className="hint">
-          Newest first, last 80 frames. <code>rate_ms</code> is null until T6. Not
-          a virtualized Trace (T9).
+          Newest first, last 80 frames. Rate is last inter-arrival (
+          <code>(Δts_us)/1000</code>), <code>—</code> on the first sample per key.
+          Not a virtualized Trace (T9).
         </p>
       </section>
 

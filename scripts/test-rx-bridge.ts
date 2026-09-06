@@ -29,6 +29,11 @@ test('parseFrameEvent / parseRxBatch accept T5 FrameEvent fields', () => {
   assert.equal(frame.is_rtr, false)
   assert.equal(frame.is_err, false)
 
+  const withRate = parseFrameEvent({ ...SAMPLE_FRAME, rate_ms: 10 })
+  assert.ok(withRate)
+  assert.equal(withRate.rate_ms, 10)
+  assert.equal(parseFrameEvent({ ...SAMPLE_FRAME, rate_ms: Number.NaN }), null)
+
   const batch = parseRxBatch({ frames: [SAMPLE_FRAME], dropped: 3 })
   assert.ok(batch)
   assert.equal(batch.frames.length, 1)

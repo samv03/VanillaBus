@@ -7,6 +7,8 @@ import threading
 import time
 from typing import Any
 
+from can_engine.rate import RateTracker
+
 # Flush when this much time has passed *or* this many frames are ready.
 RX_BATCH_INTERVAL_S = 0.016
 RX_BATCH_MAX_FRAMES = 500
@@ -26,10 +28,22 @@ def _hex_data(data: Any) -> str:
     return bytes(data).hex()
 
 
+def _frame_ts_us(msg: Any, ts_us: int | None) -> int:
+    if ts_us is not None:
+        return int(ts_us)
+    raw = getattr(msg, "ts_us", None)
+    if raw is not None:
+        return int(raw)
+    return now_ts_us()
+
+
 def message_to_frame(
     msg: Any, bus_id: str, if_name: str, ts_us: int | None = None
 ) -> dict[str, Any]:
-    """Map a python-can Message to the IPC FrameEvent object."""
+    """Map a python-can Message to the IPC FrameEvent object.
+
+    rate_ms is left null here; RateTracker.attach fills it on RX.
+    """
     data = _hex_data(getattr(msg, "data", b""))
     dlc_raw = getattr(msg, "dlc", None)
     try:
@@ -39,7 +53,7 @@ def message_to_frame(
     return {
         "busId": bus_id,
         "ifName": if_name,
-        "ts_us": int(ts_us if ts_us is not None else now_ts_us()),
+        "ts_us": _frame_ts_us(msg, ts_us),
         "can_id": int(getattr(msg, "arbitration_id", 0)),
         "dlc": dlc,
         "data": data,
@@ -57,11 +71,17 @@ class RxPump:
     """recv() thread + bounded drop-oldest queue for one open bus."""
 
     def __init__(
-        self, bus: Any, bus_id: str, if_name: str, queue_max: int = RX_QUEUE_MAX
+        self,
+        bus: Any,
+        bus_id: str,
+        if_name: str,
+        queue_max: int = RX_QUEUE_MAX,
+        rates: RateTracker | None = None,
     ) -> None:
         self._bus = bus
         self._bus_id = bus_id
         self._if_name = if_name
+        self._rates = rates if rates is not None else RateTracker()
         self._queue: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=queue_max)
         self._dropped = 0
         self._dropped_lock = threading.Lock()
@@ -128,6 +148,7 @@ class RxPump:
                 continue
             try:
                 frame = message_to_frame(msg, self._bus_id, self._if_name)
+                self._rates.attach(frame)
             except Exception:
                 continue
             self._enqueue(frame)

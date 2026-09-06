@@ -81,7 +81,7 @@
           "description": "Software capture timestamp in microseconds (T5: time.time_ns()/1000)."
         },
         "rate_ms": {
-          "description": "(Δts_us)/1000 for the same can_id. null until T6 / a second sample exists.",
+          "description": "Last inter-arrival (Δts_us)/1000 for key (busId, can_id, is_eff). null on the first sample. Not EMA. is_fd is not part of the key until FD is enabled.",
           "type": ["number", "null"]
         }
       }

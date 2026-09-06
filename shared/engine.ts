@@ -78,7 +78,7 @@ export type BusCloseResult = BusCloseOk | BusCommandError
 
 export type FrameDir = 'rx' | 'tx'
 
-/** Engine FrameEvent on rx.batch. rate_ms is null until T6. */
+/** Engine FrameEvent on rx.batch. rate_ms is last (Δts_us)/1000, or null. */
 export type FrameEvent = {
   readonly busId: string
   readonly ifName: string
@@ -187,7 +187,10 @@ export function parseFrameEvent(raw: unknown): FrameEvent | null {
   if (record.dir !== 'rx' && record.dir !== 'tx') {
     return null
   }
-  if (record.rate_ms !== null && typeof record.rate_ms !== 'number') {
+  if (
+    record.rate_ms !== null &&
+    (typeof record.rate_ms !== 'number' || !Number.isFinite(record.rate_ms))
+  ) {
     return null
   }
   return {

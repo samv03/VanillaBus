@@ -152,7 +152,15 @@ def test_drop_oldest_and_batch_cap() -> None:
             if not frames:
                 time.sleep(0.01)
         assert len(got) == 620
-        assert all(frame["dir"] == "rx" and frame["rate_ms"] is None for frame in got)
+        assert all(frame["dir"] == "rx" for frame in got)
+        first_of_key: set[tuple[int, bool]] = set()
+        for frame in got:
+            key = (frame["can_id"], frame["is_eff"])
+            if key not in first_of_key:
+                assert frame["rate_ms"] is None
+                first_of_key.add(key)
+            else:
+                assert isinstance(frame["rate_ms"], (int, float))
         assert all(frame["busId"] == opened["busId"] for frame in got)
         print(f"batch cap: received {len(got)} frames in chunks ≤500")
     finally:

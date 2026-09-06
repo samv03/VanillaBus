@@ -2,9 +2,10 @@
 
 SocketCAN-first desktop bus monitor. T5 is a throwaway raw RX stub: after
 `bus.open`, `vanillabus-engine` recv()s on that python-can bus and emits
-`rx.batch` (≤16 ms or ≤500 frames). The renderer shows a simple recent-frame
-log via `window.vanillabus.onRxBatch`. This is **not** production Trace (T9),
-does not decode DBC (T7), and leaves `rate_ms` null (T6).
+`rx.batch` (≤16 ms or ≤500 frames). T6 fills `rate_ms` as the last
+inter-arrival (`(Δts_us)/1000`) per `(busId, can_id, is_eff)` — not EMA —
+and the RX stub shows a Rate (ms) column. This is **not** production Trace
+(T9) and does not decode DBC (T7).
 
 ## Requirements
 
@@ -66,12 +67,21 @@ npm run test:bus-bridge               # same path via EngineSupervisor
 python3 scripts/test-rx-batch.py      # T5 frame map + drop-oldest + optional vcan
 # or: npm run test:rx
 npm run test:rx-bridge                # same RX path via EngineSupervisor
+python3 scripts/test-rate-ms.py       # T6 rate_ms median (synthetic + optional vcan)
+# or: npm run test:rate
 ```
 
 `test-rx-batch.py` always checks FrameEvent mapping, drop-oldest, and ≤500
 batching (no host CAN required). If `vcan0` is UP it opens the iface, injects
 `0x42A` / `11223344`, and asserts `rx.batch` within 200 ms. If not, it prints
 `SKIP vcan0 RX inject` and still exits 0.
+
+`test-rate-ms.py` always checks last-interval `rate_ms` with synthetic
+`ts_us` (51 frames at a 10 ms period → median within ±1 ms). The first
+sample per key is `null`. `bus.close` clears that busId. If `vcan0` is UP
+it also injects ≥51 frames at ~10 ms and asserts a live median within
+**±2 ms** (scheduling jitter; documented). If not, it prints
+`SKIP vcan0 rate inject` and still exits 0.
 
 `test-bus-open.py` always asserts `bus.list` and that opening a missing name
 returns `engine.error` / `iface_not_found`. If `vcan0` is UP it also opens,
@@ -94,7 +104,9 @@ cansend vcan0 123#11223344
 cangen vcan0 -I 123 -L 4 -D 11223344 -n 50 -g 2
 ```
 
-Frames should show in the RX stub (ID, DLC, data, time) within ~100–200 ms.
+Frames should show in the RX stub (ID, DLC, data, time, Rate ms) within
+~100–200 ms. The first frame of a key shows `—`; later frames show last
+inter-arrival milliseconds.
 
 ## Helper scripts
 

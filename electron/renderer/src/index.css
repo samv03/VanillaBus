@@ -304,7 +304,8 @@ tr:last-child td {
 }
 
 .rx-id code,
-.rx-data code {
+.rx-data code,
+.rx-rate {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
 }

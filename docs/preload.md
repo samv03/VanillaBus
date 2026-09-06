@@ -53,7 +53,7 @@ or DBC objects.
 | `vanillabus:rx-batch` | event | `RxBatch` (`frames`, `dropped`) |
 
 T2 engine IPC (`engine.hello`, `engine.heartbeat`, respawn) is unchanged.
-`rx.batch` is a T5 stub (ID / DLC / data / time). Not Trace.
+`rx.batch` is a T5 stub plus T6 `rate_ms` (ID / DLC / data / time / rate). Not Trace.
 
 ## Observing Disconnected
 
@@ -80,6 +80,9 @@ Automated: `npm run test:bus` and `npm run test:bus-bridge`.
 1. Bring up and open vcan0 as above.
 2. Inject frames from another terminal:
    `cansend vcan0 123#11223344` or `cangen vcan0 -n 20 -I 123`.
-3. The **RX stub** list should show ID / DLC / data / time within ~200 ms.
+3. The **RX stub** list should show ID / DLC / data / time / Rate (ms) within
+   ~200 ms. The first frame per `(busId, can_id, is_eff)` shows `—`; later
+   frames show last inter-arrival milliseconds.
 
 Automated: `npm run test:rx` and `npm run test:rx-bridge` (skip if vcan0 is not UP).
+Rate median: `npm run test:rate` (synthetic timestamps; optional live vcan).

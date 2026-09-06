@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { parseAppTab, tabHash } from '../shared/appTabs'
+import { parseAppTab, tabHash } from '../shared/appTabs.mjs'
 
 test('parseAppTab reads Trace / Graph / Transmit from the URL hash', () => {
   assert.equal(parseAppTab(''), 'trace')

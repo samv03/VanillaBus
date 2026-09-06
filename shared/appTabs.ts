@@ -1,15 +1,7 @@
-export const APP_TABS = ['trace', 'graph', 'transmit'] as const
+/**
+ * Typed facade for the T8 tab helpers.
+ * Runtime lives in `appTabs.mjs` so `node --test` can import it without tsx.
+ */
+export type AppTab = 'trace' | 'graph' | 'transmit'
 
-export type AppTab = (typeof APP_TABS)[number]
-
-export function parseAppTab(hash: string): AppTab {
-  const raw = hash.startsWith('#') ? hash.slice(1) : hash
-  if (raw === 'graph' || raw === 'transmit' || raw === 'trace') {
-    return raw
-  }
-  return 'trace'
-}
-
-export function tabHash(tab: AppTab): string {
-  return `#${tab}`
-}
+export { APP_TABS, parseAppTab, tabHash } from './appTabs.mjs'

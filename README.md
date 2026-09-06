@@ -24,7 +24,8 @@ sudo apt update
 sudo apt install -y can-utils iproute2 build-essential linux-headers-$(uname -r)
 ```
 
-Also need a current **Node.js 20+** (npm) and **Python 3.10+** (pip).
+Also need **Node.js 20+** (`package.json` `engines.node`) and **Python 3.10+**
+(pip). Older Node cannot parse `tsx/dist/cli.mjs` (`Unexpected token '.'`).
 
 VanillaBus talks to Linux SocketCAN first (`can0`, `vcan0`, …). Vendor SDKs
 (Peak, Kvaser, …) are out of scope.
@@ -81,9 +82,12 @@ python3 scripts/test-rate-ms.py       # T6 rate_ms median (synthetic + optional 
 # or: npm run test:rate
 python3 scripts/test-dbc-unpack.py    # T7 golden unpack + mux + allowlist
 # or: npm run test:dbc
-npm run test:dbc-bridge               # parseFrameEvent decode + supervisor load/clear
-npm run test:shell                    # T8 hash tabs (Trace / Graph / Transmit)
+npm run test:dbc-bridge               # parseFrameEvent decode + supervisor load/clear (tsx)
+npm run test:shell                    # T8 hash tabs — node --test, no tsx
 ```
+
+`test:shell` is plain `node --test scripts/test-shell-tabs.mjs` and imports
+`shared/appTabs.mjs` (no tsx). Bridge tests still use tsx and need Node 20+.
 
 `test-rx-batch.py` always checks FrameEvent mapping, drop-oldest, and ≤500
 batching (no host CAN required). If `vcan0` is UP it opens the iface, injects
@@ -147,7 +151,8 @@ electron/renderer/      # React shell (tabs + shared header) + Trace RX stub
 engine/pyproject.toml   # vanillabus-engine (python-can + cantools)
 engine/can_engine/      # framing server + SocketCAN + RX pump + DBC unpack
 shared/engine.ts        # renderer/host types
-shared/appTabs.ts       # Trace | Graph | Transmit hash helpers
+shared/appTabs.ts       # typed re-export of Trace | Graph | Transmit helpers
+shared/appTabs.mjs      # same helpers for node --test (no tsx)
 shared/ipc-schema.json  # locked IPC types
 scripts/                # check-host, setup-vcan, hello + bus + rx + dbc tests
 fixtures/dbc/           # sample + mux + invalid DBC (engine-side only)

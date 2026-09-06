@@ -18,7 +18,6 @@
     "scripts/test-bus-bridge.ts",
     "scripts/test-rx-bridge.ts",
     "scripts/test-dbc-bridge.ts",
-    "scripts/test-shell-tabs.ts",
     "electron.vite.config.ts"
   ],
   "references": [{ "path": "./tsconfig.shared.json" }]

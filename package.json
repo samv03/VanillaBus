@@ -24,7 +24,7 @@
     "test:rate": "python3 scripts/test-rate-ms.py",
     "test:dbc": "python3 scripts/test-dbc-unpack.py",
     "test:dbc-bridge": "tsx --test scripts/test-dbc-bridge.ts",
-    "test:shell": "tsx --test scripts/test-shell-tabs.ts"
+    "test:shell": "node --test scripts/test-shell-tabs.mjs"
   },
   "dependencies": {
     "react": "^19.2.8",

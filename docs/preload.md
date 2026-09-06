@@ -46,7 +46,8 @@ throw through the renderer. Engine codes include `iface_not_found`,
 The renderer forwards a repo-relative fixture path; cantools runs in the engine.
 
 The renderer never receives Unix-socket frames, SocketCAN handles, or DBC
-objects. It may display `decode.name` / a few `decode.signals` from `rx.batch`.
+objects. Trace displays `decode.name` / `decode.signals` / `decode.units`
+from `rx.batch` in an expandable row.
 
 ## IPC channels (main ↔ preload)
 
@@ -62,16 +63,17 @@ objects. It may display `decode.name` / a few `decode.signals` from `rx.batch`.
 | `vanillabus:rx-batch` | event | `RxBatch` (`frames`, `dropped`) |
 
 T2 engine IPC (`engine.hello`, `engine.heartbeat`, respawn) is unchanged.
-`rx.batch` is a T5 stub plus T6 `rate_ms` and optional T7 `decode`. Not Trace.
+`rx.batch` still carries T5 frames, T6 `rate_ms`, and optional T7 `decode`.
+T9 Trace virtualizes that stream (filter / pause / clear / scroll lock).
 
 ## Observing Disconnected
 
 1. `npm run dev` — the shared header **Engine Connected** pill lights after
-   hello (name + version stay on the Trace body). The pill is on every tab.
+   hello. The pill is on every tab.
 2. Kill the engine: `pkill -f 'python3 -m can_engine'`.
-3. The badge flips to **Disconnected** and a `disconnected` event is logged.
+3. The badge flips to **Disconnected**.
 4. Main respawns the engine (~750 ms). After the next hello the badge is
-   **Connected** again and a `connected` event is logged.
+   **Connected** again.
 
 Automated: `npm run test:bridge` starts the supervisor, waits for hello, kills
 the child PID, and asserts a `disconnected` then `connected` transition.
@@ -79,31 +81,32 @@ the child PID, and asserts a `disconnected` then `connected` transition.
 ## List / open / close
 
 1. Bring up an iface: `sudo ./scripts/setup-vcan.sh`
-2. Click **List buses** — `vcan0` should appear with kind `vcan` and state `up`.
-3. **Open** returns a `busId`. **Close** then **Open** again works (new id).
-4. Open a missing name (e.g. `vb_missing0`) — status shows `iface_not_found`.
+2. The header bus dropdown lists `vcan0` after hello (`bus.list`).
+3. **Connect** returns a `busId`. **Disconnect** then **Connect** again works.
+4. Connect a missing name (e.g. type `vb_missing0`) — status shows `iface_not_found`.
 
 Automated: `npm run test:bus` and `npm run test:bus-bridge`.
 
-## Raw RX stub
+## Virtualized Trace
 
-1. Bring up and open vcan0 as above.
+1. Bring up and Connect vcan0 as above. Load `fixtures/dbc/sample.dbc`.
 2. Inject frames from another terminal:
-   `cansend vcan0 123#11223344` or `cangen vcan0 -n 20 -I 123`.
-3. The **RX stub** list should show ID / name / DLC / data / time / Rate (ms) /
-   a couple of signals within ~200 ms. The first frame per
-   `(busId, can_id, is_eff)` shows `—` for rate; unknown IDs show `—` for name.
+   `cansend vcan0 100#E8035A0A00000000` or `cangen vcan0 -n 20 -I 123`.
+3. The Trace table should show Time / Bus / ID / Name / DLC / Data / Rate (ms) /
+   Dir within ~200 ms. Expand a named row for signal name / value / unit.
+   Filter, Pause, Clear, and Scroll lock stay interactive under load. The ring
+   keeps at most 20_000 frames (drop-oldest).
 
-Automated: `npm run test:rx` and `npm run test:rx-bridge` (skip if vcan0 is not UP).
-Rate median: `npm run test:rate` (synthetic timestamps; optional live vcan).
+Automated: `npm run test:trace` (synthetic first-paint + optional live vcan N2).
+Also `npm run test:rx` / `test:rx-bridge` (skip live if vcan0 is not UP).
+Rate median: `npm run test:rate`.
 
 ## DBC load / unpack
 
 1. Open vcan0 as above.
-2. Click **Sample DBC** or **Mux DBC** on the open bus (paths
-   `fixtures/dbc/sample.dbc` / `fixtures/dbc/mux.dbc`).
-3. Inject a known ID, e.g. `cansend vcan0 100#E8035A0A00000000` — the RX stub
-   should show `EngineStatus` and `EngineSpeed=250`.
+2. Set the header DBC path to `fixtures/dbc/sample.dbc` (or `mux.dbc`) and **Load**.
+3. Inject a known ID, e.g. `cansend vcan0 100#E8035A0A00000000` — Trace shows
+   `EngineStatus`; expand the row for `EngineSpeed` / value / `rpm`.
 4. Inject an unknown ID (`cansend vcan0 7FF#DEADBEEF`) — the row stays raw.
 
 Automated: `npm run test:dbc` and `npm run test:dbc-bridge`.

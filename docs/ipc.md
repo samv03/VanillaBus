@@ -55,11 +55,14 @@ software clock), `rate_ms` = last `(Δts_us)/1000` for key `(busId, can_id,
 is_eff)`, or `null` until a second sample. Not EMA. `is_fd` is not part of the
 key until FD is enabled. Rate state for a `busId` is cleared on `bus.close`.
 
-`decode` is optional: `{ "name": "<DBC message>", "signals": { "<sig>": <value> } }`
-when a DBC is bound and the CAN ID is known. Unknown IDs (or decode failures)
-keep the raw frame and set `decode` to `null`. The renderer never parses DBC.
+`decode` is optional: `{ "name": "<DBC message>", "signals": { "<sig>": <value> },
+"units": { "<sig>": "<unit>" } }` when a DBC is bound and the CAN ID is known.
+`units` is omitted or empty when the DBC has no unit strings. Unknown IDs (or
+decode failures) keep the raw frame and set `decode` to `null`. The renderer
+never parses DBC.
 
 If the engine RX queue backs up, oldest frames are dropped and `dropped` counts
-them. This is a raw stub, not production Trace (T9).
+them. The Trace UI also keeps a 20_000-frame drop-oldest ring so renderer
+memory stays bounded.
 
 See `shared/ipc-schema.json` for the machine-readable shapes.

@@ -29,12 +29,14 @@ test('parseFrameEvent accepts optional decode and unknown-ID null', () => {
     ...SAMPLE_FRAME,
     decode: {
       name: 'EngineStatus',
-      signals: { EngineSpeed: 250, EngineTemp: 50, OilPressure: 20 }
+      signals: { EngineSpeed: 250, EngineTemp: 50, OilPressure: 20 },
+      units: { EngineSpeed: 'rpm', EngineTemp: 'degC', OilPressure: 'kPa' }
     }
   })
   assert.ok(decoded)
   assert.equal(decoded.decode?.name, 'EngineStatus')
   assert.equal(decoded.decode?.signals.EngineSpeed, 250)
+  assert.equal(decoded.decode?.units.EngineSpeed, 'rpm')
 
   const unknown = parseFrameEvent({ ...SAMPLE_FRAME, can_id: 0x7ff, decode: null })
   assert.ok(unknown)

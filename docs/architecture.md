@@ -7,7 +7,7 @@ VanillaBus is a SocketCAN-first desktop bus monitor.
 │ Electron desktop (npm run dev)              │
 │  main  → window + engine spawn / restart    │
 │  preload → window.vanillabus (typed)        │
-│  renderer → shell (Trace | Graph | Transmit)│
+│  renderer → shell + virtualized Trace       │
 └──────────────────┬──────────────────────────┘
                    │ UDS: 4-byte BE length + JSON
                    │ (see docs/ipc.md)
@@ -22,7 +22,8 @@ VanillaBus is a SocketCAN-first desktop bus monitor.
 - **Renderer** is a React view with a sticky top-tab shell (Trace | Graph |
   Transmit) and one shared bus/DBC header. Tab state is the URL hash
   (`#trace`, `#graph`, `#transmit`). Switching tabs does not respawn the
-  engine. It must not talk to SocketCAN or parse DBC.
+  engine. Trace is a virtualized table (react-virtuoso) over a 20_000-frame
+  drop-oldest ring. The renderer must not talk to SocketCAN or parse DBC.
 - **Main** owns the window, the Unix-socket path, and a **minimal** engine
   supervisor (spawn, log disconnect, respawn, request/response). Full
   hardening is later (T16).
@@ -36,12 +37,13 @@ VanillaBus is a SocketCAN-first desktop bus monitor.
   IPC. `dbc.load` binds one DBC per busId. Interfaces must already be UP; see
   [privileges.md](privileges.md).
 
-## T8 vs later
+## T9 vs later
 
-T8 is app chrome only: top tabs plus a shared header (bus dropdown,
-Connect/Disconnect, DBC path + Load, engine/bus pills). Trace still hosts the
-T5–T7 RX stub. Graph is a T11 placeholder; Transmit is a T12/T13 placeholder.
-It is not virtualized Trace (T9), uPlot (T11), or TX send/pack (T12/T13).
+T8 is app chrome: top tabs plus a shared header (bus dropdown,
+Connect/Disconnect, DBC path + Load, engine/bus pills). T9 replaces the T5 RX
+stub with a production virtualized Trace (`react-virtuoso`): filter, pause,
+clear, scroll lock, expandable DBC signals, and a 20_000-frame drop-oldest
+ring. Graph is a T11 placeholder; Transmit is a T12/T13 placeholder.
 T4–T7 bus/RX/`rate_ms`/DBC unpack stay as they are. The engine does not bring
 interfaces up or set bitrate via `CAP_NET_ADMIN`.
 

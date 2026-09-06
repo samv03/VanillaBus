@@ -1,25 +1,95 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://vanillabus.local/shared/ipc-schema.json",
-  "title": "VanillaBus IPC schema (T1 stub)",
-  "description": "Future Electron main ↔ vanillabus-engine message types. T1 records names and shapes only; no live IPC is implemented.",
+  "title": "VanillaBus IPC schema",
+  "description": "Electron main ↔ vanillabus-engine contract. Transport is a Unix domain socket carrying 4-byte big-endian length + UTF-8 JSON. Frame timestamps are integer microseconds (ts_us); rate_ms is (Δts_us)/1000 and null until a second sample exists.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "messages"],
+  "required": ["version", "envelope", "frame", "messages"],
   "properties": {
     "version": {
       "const": "0.1.0"
+    },
+    "envelope": {
+      "description": "Every framed JSON object uses this envelope.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "engine.hello",
+            "engine.heartbeat",
+            "engine.error",
+            "bus.list",
+            "bus.open",
+            "bus.close",
+            "dbc.load",
+            "dbc.clear",
+            "rx.batch",
+            "tx.send",
+            "tx.cyclic.start",
+            "tx.cyclic.stop"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "description": "Optional correlation id. Echoed on request/response."
+        },
+        "payload": {
+          "type": "object"
+        }
+      }
+    },
+    "frame": {
+      "description": "CAN frame object used by rx.batch and tx.* (engine-owned; never parsed in the renderer).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "can_id",
+        "data",
+        "dlc",
+        "is_eff",
+        "is_fd",
+        "brs",
+        "dir",
+        "ts_us",
+        "rate_ms"
+      ],
+      "properties": {
+        "can_id": { "type": "integer", "minimum": 0 },
+        "data": {
+          "type": "string",
+          "description": "Hex payload without spaces (even number of hex digits)."
+        },
+        "dlc": { "type": "integer", "minimum": 0, "maximum": 64 },
+        "is_eff": { "type": "boolean", "description": "Extended (29-bit) identifier." },
+        "is_fd": { "type": "boolean" },
+        "brs": { "type": "boolean", "description": "CAN FD bit-rate switch." },
+        "dir": { "type": "string", "enum": ["rx", "tx"] },
+        "ts_us": {
+          "type": "integer",
+          "description": "Hardware or capture timestamp in microseconds."
+        },
+        "rate_ms": {
+          "description": "(Δts_us)/1000 for the same can_id. null until a second sample exists.",
+          "type": ["number", "null"]
+        }
+      }
     },
     "messages": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "engine.hello",
-        "heartbeat",
+        "engine.heartbeat",
+        "engine.error",
         "bus.list",
         "bus.open",
         "bus.close",
         "dbc.load",
+        "dbc.clear",
         "rx.batch",
         "tx.send",
         "tx.cyclic.start",
@@ -27,7 +97,7 @@
       ],
       "properties": {
         "engine.hello": {
-          "description": "Handshake / identity from vanillabus-engine.",
+          "description": "Handshake / identity. Engine emits this on connect; also answers a client engine.hello.",
           "type": "object",
           "properties": {
             "direction": { "const": "request-response" },
@@ -39,25 +109,49 @@
             "response": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["name", "version"],
+              "required": ["name", "version", "backends"],
               "properties": {
                 "name": { "const": "vanillabus-engine" },
-                "version": { "type": "string" }
+                "version": { "type": "string" },
+                "backends": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "examples": [["socketcan"]]
+                }
               }
             }
           }
         },
-        "heartbeat": {
-          "description": "Periodic liveness from the engine process.",
+        "engine.heartbeat": {
+          "description": "Periodic liveness from the engine (~2s).",
           "type": "object",
           "properties": {
             "direction": { "const": "event" },
             "payload": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["ts"],
+              "required": ["ts_us"],
               "properties": {
-                "ts": { "type": "integer", "description": "Unix time in milliseconds" }
+                "ts_us": {
+                  "type": "integer",
+                  "description": "Unix time in microseconds"
+                }
+              }
+            }
+          }
+        },
+        "engine.error": {
+          "description": "Engine-reported failure (malformed frame, unknown type, later bus/DBC errors).",
+          "type": "object",
+          "properties": {
+            "direction": { "const": "event" },
+            "payload": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["code", "message"],
+              "properties": {
+                "code": { "type": "string" },
+                "message": { "type": "string" }
               }
             }
           }
@@ -89,7 +183,7 @@
           }
         },
         "bus.open": {
-          "description": "Open a CAN interface in the engine.",
+          "description": "Open a CAN interface in the engine. Not implemented in T2.",
           "type": "object",
           "properties": {
             "direction": { "const": "request-response" },
@@ -112,7 +206,7 @@
           }
         },
         "bus.close": {
-          "description": "Close the currently open CAN interface.",
+          "description": "Close the currently open CAN interface. Not implemented in T2.",
           "type": "object",
           "properties": {
             "direction": { "const": "request-response" },
@@ -128,7 +222,7 @@
           }
         },
         "dbc.load": {
-          "description": "Load a DBC file in the engine (never in the renderer).",
+          "description": "Load a DBC file in the engine (never in the renderer). Not implemented in T2.",
           "type": "object",
           "properties": {
             "direction": { "const": "request-response" },
@@ -146,13 +240,29 @@
               "required": ["ok"],
               "properties": {
                 "ok": { "type": "boolean" },
-                "messageCount": { "type": "integer" }
+                "message_count": { "type": "integer" }
+              }
+            }
+          }
+        },
+        "dbc.clear": {
+          "description": "Unload any DBC loaded in the engine. Not implemented in T2.",
+          "type": "object",
+          "properties": {
+            "direction": { "const": "request-response" },
+            "request": { "type": "object", "additionalProperties": false, "properties": {} },
+            "response": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["ok"],
+              "properties": {
+                "ok": { "type": "boolean" }
               }
             }
           }
         },
         "rx.batch": {
-          "description": "Batched received frames from the engine to the UI.",
+          "description": "Batched received frames from the engine to main. Not emitted in T2.",
           "type": "object",
           "properties": {
             "direction": { "const": "event" },
@@ -163,33 +273,28 @@
               "properties": {
                 "frames": {
                   "type": "array",
-                  "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["ts", "id", "data"],
-                    "properties": {
-                      "ts": { "type": "integer" },
-                      "id": { "type": "integer" },
-                      "data": { "type": "string", "description": "Hex payload" }
-                    }
-                  }
+                  "items": { "$ref": "#/properties/frame" }
                 }
               }
             }
           }
         },
         "tx.send": {
-          "description": "Send a single frame via the engine.",
+          "description": "Send a single frame via the engine. Not implemented in T2.",
           "type": "object",
           "properties": {
             "direction": { "const": "request-response" },
             "request": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["id", "data"],
+              "required": ["can_id", "data"],
               "properties": {
-                "id": { "type": "integer" },
-                "data": { "type": "string" }
+                "can_id": { "type": "integer", "minimum": 0 },
+                "data": { "type": "string" },
+                "dlc": { "type": "integer", "minimum": 0, "maximum": 64 },
+                "is_eff": { "type": "boolean" },
+                "is_fd": { "type": "boolean" },
+                "brs": { "type": "boolean" }
               }
             },
             "response": {
@@ -203,41 +308,45 @@
           }
         },
         "tx.cyclic.start": {
-          "description": "Start a cyclic transmit job in the engine.",
+          "description": "Start a cyclic transmit job in the engine. Not implemented in T2.",
           "type": "object",
           "properties": {
             "direction": { "const": "request-response" },
             "request": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["id", "data", "periodMs"],
+              "required": ["can_id", "data", "period_ms"],
               "properties": {
-                "id": { "type": "integer" },
+                "can_id": { "type": "integer", "minimum": 0 },
                 "data": { "type": "string" },
-                "periodMs": { "type": "integer", "minimum": 1 }
+                "period_ms": { "type": "integer", "minimum": 1 },
+                "dlc": { "type": "integer", "minimum": 0, "maximum": 64 },
+                "is_eff": { "type": "boolean" },
+                "is_fd": { "type": "boolean" },
+                "brs": { "type": "boolean" }
               }
             },
             "response": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["jobId"],
+              "required": ["job_id"],
               "properties": {
-                "jobId": { "type": "string" }
+                "job_id": { "type": "string" }
               }
             }
           }
         },
         "tx.cyclic.stop": {
-          "description": "Stop a cyclic transmit job.",
+          "description": "Stop a cyclic transmit job. Not implemented in T2.",
           "type": "object",
           "properties": {
             "direction": { "const": "request-response" },
             "request": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["jobId"],
+              "required": ["job_id"],
               "properties": {
-                "jobId": { "type": "string" }
+                "job_id": { "type": "string" }
               }
             },
             "response": {

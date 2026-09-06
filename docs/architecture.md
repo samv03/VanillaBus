@@ -1,34 +1,36 @@
-# VanillaBus architecture (T1 stub)
+# VanillaBus architecture
 
 VanillaBus is a SocketCAN-first desktop bus monitor.
 
 ```
 ┌─────────────────────────────────────────────┐
 │ Electron desktop (npm run dev)              │
-│  main  → window + future engine spawn       │
-│  preload → contextBridge stub (T1 empty-ish)│
-│  renderer → React UI (hello window only)    │
+│  main  → window + engine spawn / restart    │
+│  preload → engine Connected status only     │
+│  renderer → React UI (no CAN / no DBC)      │
 └──────────────────┬──────────────────────────┘
-                   │ later: IPC per shared/ipc-schema.json
+                   │ UDS: 4-byte BE length + JSON
+                   │ (see docs/ipc.md)
 ┌──────────────────▼──────────────────────────┐
-│ vanillabus-engine (pip install -e engine/)  │
-│  can_engine/  SocketCAN + DBC (not in T1)   │
+│ vanillabus-engine  (python3 -m can_engine)  │
+│  can_engine/  SocketCAN + DBC later         │
 └─────────────────────────────────────────────┘
 ```
 
 ## Process split
 
 - **Renderer** is a React view. It must not talk to SocketCAN or parse DBC.
-- **Main** owns the window and will later spawn/supervise the engine.
-- **Preload** will expose a narrow, schema-aligned API (`engine.hello`,
-  `heartbeat`, `bus.*`, `dbc.load`, `rx.batch`, `tx.*`).
+- **Main** owns the window, the Unix-socket path, and a **minimal** engine
+  supervisor (spawn, log disconnect, respawn). Full hardening is later (T16).
+- **Preload** exposes a narrow API: app version + engine connection status
+  derived from `engine.hello`. No bus or DBC surface.
 - **Engine** is a Python package. All bus I/O and DBC work belongs here.
 
-## T1 vs later
+## T2 vs later
 
-T1 is an installable scaffold: hello window + editable Python package +
-IPC schema stub + host/vcan scripts. No live IPC, no CAN I/O, and no
-Trace/Graph/Transmit UI.
+T2 wires live IPC: `engine.hello`, `engine.heartbeat`, `engine.error`,
+length-prefixed framing, and a hello integration script. It does **not**
+open SocketCAN, load DBC, or ship Trace/Graph/Transmit UI.
 
 Linux SocketCAN (`can0`, `vcan0`) is the first-class backend. There is no
 `native/can-helper` tree and no Peak/Kvaser SDK in this repository.

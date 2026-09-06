@@ -1,12 +1,19 @@
 # VanillaBus
 
-SocketCAN-first desktop bus monitor. T5 is a throwaway raw RX stub: after
-`bus.open`, `vanillabus-engine` recv()s on that python-can bus and emits
-`rx.batch` (≤16 ms or ≤500 frames). T6 fills `rate_ms` as the last
-inter-arrival (`(Δts_us)/1000`) per `(busId, can_id, is_eff)` — not EMA.
-T7 binds one DBC per `busId` (`dbc.load` / `dbc.clear`) and unpacks known
-IDs with **cantools** onto `decode` (`name` + `signals`). Unknown IDs still
-flow through RX as raw frames. This is **not** production Trace (T9).
+SocketCAN-first desktop bus monitor. T8 is a dedicated app shell: top tabs
+**Trace | Graph | Transmit** and one shared bus/DBC header (dropdown,
+Connect/Disconnect, DBC path + Load, status pills). Tab state is the URL
+hash (`#trace`, `#graph`, `#transmit`); switching tabs does not tear down
+the engine. Trace still hosts the T5–T7 RX stub. Graph and Transmit are
+placeholders (T11 / T12–T13). This is **not** production Trace (T9).
+
+T5 is a throwaway raw RX stub: after `bus.open`, `vanillabus-engine` recv()s
+on that python-can bus and emits `rx.batch` (≤16 ms or ≤500 frames). T6
+fills `rate_ms` as the last inter-arrival (`(Δts_us)/1000`) per
+`(busId, can_id, is_eff)` — not EMA. T7 binds one DBC per `busId`
+(`dbc.load` / `dbc.clear`) and unpacks known IDs with **cantools** onto
+`decode` (`name` + `signals`). Unknown IDs still flow through RX as raw
+frames.
 
 ## Requirements
 
@@ -47,11 +54,12 @@ npm run dev
 ```
 
 `npm run dev` starts Vite, opens an Electron window titled **VanillaBus**, and
-spawns `python3 -m can_engine --ipc <socket>`. After `engine.hello` the window
-shows **Connected**. Use **List buses** / **Open** to call `bus.list` /
-`bus.open` (result includes `busId`). **Sample DBC** / **Mux DBC** call
-`dbc.load` for that bus. Inject frames on the open iface and they appear in
-the **RX stub** list (message name + a couple of signals when decoded).
+spawns `python3 -m can_engine --ipc <socket>`. After `engine.hello` the shared
+header shows **Engine Connected**. The same header is on Trace, Graph, and
+Transmit. Use the bus dropdown + **Connect**, or on Trace **List buses** /
+**Open**, to call `bus.list` / `bus.open`. **Load** (header DBC path) or
+**Sample DBC** / **Mux DBC** call `dbc.load`. Inject frames on the open iface
+and they appear in the Trace **RX stub** list.
 
 The IPC socket lives under `$XDG_RUNTIME_DIR/vanillabus/` (mode 0600), or a
 private 0700 `mkstemp` directory — not a world-writable predictable `/tmp` path.
@@ -74,6 +82,7 @@ python3 scripts/test-rate-ms.py       # T6 rate_ms median (synthetic + optional 
 python3 scripts/test-dbc-unpack.py    # T7 golden unpack + mux + allowlist
 # or: npm run test:dbc
 npm run test:dbc-bridge               # parseFrameEvent decode + supervisor load/clear
+npm run test:shell                    # T8 hash tabs (Trace / Graph / Transmit)
 ```
 
 `test-rx-batch.py` always checks FrameEvent mapping, drop-oldest, and ≤500
@@ -134,10 +143,11 @@ sudo ./scripts/setup-vcan.sh          # vcan0 UP for bus.open + RX
 package.json
 electron/main/          # window + engine spawn / UDS client + ipc-bridge
 electron/preload/       # window.vanillabus (status + bus + DBC + onRxBatch)
-electron/renderer/      # React status + list/open + DBC buttons + RX stub
+electron/renderer/      # React shell (tabs + shared header) + Trace RX stub
 engine/pyproject.toml   # vanillabus-engine (python-can + cantools)
 engine/can_engine/      # framing server + SocketCAN + RX pump + DBC unpack
 shared/engine.ts        # renderer/host types
+shared/appTabs.ts       # Trace | Graph | Transmit hash helpers
 shared/ipc-schema.json  # locked IPC types
 scripts/                # check-host, setup-vcan, hello + bus + rx + dbc tests
 fixtures/dbc/           # sample + mux + invalid DBC (engine-side only)

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vanillabus-engine"
+version = "0.1.0"
+description = "VanillaBus CAN engine (T1 scaffold — no SocketCAN I/O yet)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "Sam Vinella" }]
+
+[project.urls]
+Homepage = "https://github.com/samv03/VanillaBus"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["can_engine*"]

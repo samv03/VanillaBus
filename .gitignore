@@ -1,0 +1,23 @@
+# Node / Electron
+node_modules/
+out/
+dist/
+dist-electron/
+.vite/
+*.log
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.venv/
+venv/
+build/
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/

@@ -1,0 +1,33 @@
+{
+  "name": "vanillabus",
+  "productName": "VanillaBus",
+  "version": "0.1.0",
+  "description": "SocketCAN-first desktop bus monitor (T1 scaffold).",
+  "license": "GPL-3.0-or-later",
+  "author": "Sam Vinella",
+  "private": true,
+  "main": "./out/main/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.14",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.4",
+    "electron": "^37.3.1",
+    "electron-vite": "^5.0.0",
+    "typescript": "^5.8.3",
+    "vite": "^7.3.6"
+  }
+}

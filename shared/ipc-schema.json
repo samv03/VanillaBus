@@ -1,0 +1,256 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vanillabus.local/shared/ipc-schema.json",
+  "title": "VanillaBus IPC schema (T1 stub)",
+  "description": "Future Electron main ↔ vanillabus-engine message types. T1 records names and shapes only; no live IPC is implemented.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "messages"],
+  "properties": {
+    "version": {
+      "const": "0.1.0"
+    },
+    "messages": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "engine.hello",
+        "heartbeat",
+        "bus.list",
+        "bus.open",
+        "bus.close",
+        "dbc.load",
+        "rx.batch",
+        "tx.send",
+        "tx.cyclic.start",
+        "tx.cyclic.stop"
+      ],
+      "properties": {
+        "engine.hello": {
+          "description": "Handshake / identity from vanillabus-engine.",
+          "type": "object",
+          "properties": {
+            "direction": { "const": "request-response" },
+            "request": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {}
+            },
+            "response": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "version"],
+              "properties": {
+                "name": { "const": "vanillabus-engine" },
+                "version": { "type": "string" }
+              }
+            }
+          }
+        },
+        "heartbeat": {
+          "description": "Periodic liveness from the engine process.",
+          "type": "object",
+          "properties": {
+            "direction": { "const": "event" },
+            "payload": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["ts"],
+              "properties": {
+                "ts": { "type": "integer", "description": "Unix time in milliseconds" }
+              }
+            }
+          }
+        },
+        "bus.list": {
+          "description": "List SocketCAN (and later adapter) interfaces. Engine-side only.",
+          "type": "object",
+          "properties": {
+            "direction": { "const": "request-response" },
+            "request": { "type": "object", "additionalProperties": false, "properties": {} },
+            "response": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["interfaces"],
+              "properties": {
+                "interfaces": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["name"],
+                    "properties": {
+                      "name": { "type": "string", "examples": ["can0", "vcan0"] }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "bus.open": {
+          "description": "Open a CAN interface in the engine.",
+          "type": "object",
+          "properties": {
+            "direction": { "const": "request-response" },
+            "request": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name"],
+              "properties": {
+                "name": { "type": "string" }
+              }
+            },
+            "response": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["ok"],
+              "properties": {
+                "ok": { "type": "boolean" }
+              }
+            }
+          }
+        },
+        "bus.close": {
+          "description": "Close the currently open CAN interface.",
+          "type": "object",
+          "properties": {
+            "direction": { "const": "request-response" },
+            "request": { "type": "object", "additionalProperties": false, "properties": {} },
+            "response": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["ok"],
+              "properties": {
+                "ok": { "type": "boolean" }
+              }
+            }
+          }
+        },
+        "dbc.load": {
+          "description": "Load a DBC file in the engine (never in the renderer).",
+          "type": "object",
+          "properties": {
+            "direction": { "const": "request-response" },
+            "request": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path"],
+              "properties": {
+                "path": { "type": "string" }
+              }
+            },
+            "response": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["ok"],
+              "properties": {
+                "ok": { "type": "boolean" },
+                "messageCount": { "type": "integer" }
+              }
+            }
+          }
+        },
+        "rx.batch": {
+          "description": "Batched received frames from the engine to the UI.",
+          "type": "object",
+          "properties": {
+            "direction": { "const": "event" },
+            "payload": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["frames"],
+              "properties": {
+                "frames": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["ts", "id", "data"],
+                    "properties": {
+                      "ts": { "type": "integer" },
+                      "id": { "type": "integer" },
+                      "data": { "type": "string", "description": "Hex payload" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tx.send": {
+          "description": "Send a single frame via the engine.",
+          "type": "object",
+          "properties": {
+            "direction": { "const": "request-response" },
+            "request": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "data"],
+              "properties": {
+                "id": { "type": "integer" },
+                "data": { "type": "string" }
+              }
+            },
+            "response": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["ok"],
+              "properties": {
+                "ok": { "type": "boolean" }
+              }
+            }
+          }
+        },
+        "tx.cyclic.start": {
+          "description": "Start a cyclic transmit job in the engine.",
+          "type": "object",
+          "properties": {
+            "direction": { "const": "request-response" },
+            "request": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "data", "periodMs"],
+              "properties": {
+                "id": { "type": "integer" },
+                "data": { "type": "string" },
+                "periodMs": { "type": "integer", "minimum": 1 }
+              }
+            },
+            "response": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["jobId"],
+              "properties": {
+                "jobId": { "type": "string" }
+              }
+            }
+          }
+        },
+        "tx.cyclic.stop": {
+          "description": "Stop a cyclic transmit job.",
+          "type": "object",
+          "properties": {
+            "direction": { "const": "request-response" },
+            "request": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["jobId"],
+              "properties": {
+                "jobId": { "type": "string" }
+              }
+            },
+            "response": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["ok"],
+              "properties": {
+                "ok": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

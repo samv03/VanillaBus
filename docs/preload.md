@@ -66,7 +66,8 @@ T2 engine IPC (`engine.hello`, `engine.heartbeat`, respawn) is unchanged.
 
 ## Observing Disconnected
 
-1. `npm run dev` — badge shows **Connected** after hello, with name + version.
+1. `npm run dev` — the shared header **Engine Connected** pill lights after
+   hello (name + version stay on the Trace body). The pill is on every tab.
 2. Kill the engine: `pkill -f 'python3 -m can_engine'`.
 3. The badge flips to **Disconnected** and a `disconnected` event is logged.
 4. Main respawns the engine (~750 ms). After the next hello the badge is

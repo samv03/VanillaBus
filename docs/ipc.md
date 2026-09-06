@@ -35,20 +35,24 @@ T3+ maps status and bus commands onto `window.vanillabus` (see
 | `bus.list` | request/response | `{ "interfaces": [{ "name", "kind", "state": "up"\|"down" }] }` |
 | `bus.open` | request `{ "name", "bitrate"? }` → `{ "busId" }` | Bind only if the iface exists and is UP. `bitrate` optional; ignored for vcan. Missing/down → `engine.error` (`iface_not_found` / `iface_down`). Never `ip link set up`. |
 | `bus.close` | request `{ "busId" }` → `{ "ok": true }` | Reopen after close is allowed (new `busId`). |
+| `rx.batch` | engine event | `{ "frames": [FrameEvent, …], "dropped": <int> }` — after `bus.open`, ≤16 ms or ≤500 frames. `rate_ms` is `null` in T5. |
 
 Unknown request types get `engine.error` with `code: "not_implemented"`.
 
 See [docs/privileges.md](privileges.md) for pre-UP / no-root rules.
 
-## Reserved (schema only; no DBC/RX/TX runtime in T4)
+## Reserved (schema only; no DBC/TX runtime in T5)
 
-`dbc.load` · `dbc.clear` · `rx.batch` · `tx.send` ·
+`dbc.load` · `dbc.clear` · `tx.send` ·
 `tx.cyclic.start` · `tx.cyclic.stop`
 
-## Frame object (for later `rx.batch` / `tx.*`)
+## FrameEvent (`rx.batch` / later `tx.*`)
 
-`can_id`, `data` (hex), `dlc`, `is_eff`, `is_fd`, `brs`, `dir` (`rx`\|`tx`),
-`ts_us` (integer microseconds), `rate_ms` = `(Δts_us)/1000` or `null` until a
-second sample for that `can_id`.
+`busId`, `ifName`, `can_id`, `data` (hex, no spaces), `dlc`, `is_eff`, `is_fd`,
+`brs`, `is_rtr`, `is_err`, `dir` (`rx`\|`tx`), `ts_us` (integer microseconds,
+software clock in T5), `rate_ms` = `null` until T6.
+
+If the engine RX queue backs up, oldest frames are dropped and `dropped` counts
+them. This is a raw stub, not production Trace (T9).
 
 See `shared/ipc-schema.json` for the machine-readable shapes.

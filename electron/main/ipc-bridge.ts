@@ -7,7 +7,8 @@ import {
   type BusOpenResult,
   type EngineErrorPayload,
   type EngineInfo,
-  type EngineStatus
+  type EngineStatus,
+  type RxBatch
 } from '../../shared/engine'
 import { EngineRequestError } from './engineClient'
 import type { EngineSupervisor } from './engineSupervisor'
@@ -18,7 +19,8 @@ export const VANILLABUS_IPC = {
   engineEvent: 'vanillabus:engine-event',
   busList: 'vanillabus:bus-list',
   busOpen: 'vanillabus:bus-open',
-  busClose: 'vanillabus:bus-close'
+  busClose: 'vanillabus:bus-close',
+  rxBatch: 'vanillabus:rx-batch'
 } as const
 
 function asError(error: unknown): EngineErrorPayload {
@@ -83,6 +85,10 @@ export function registerIpcBridge(supervisor: EngineSupervisor): void {
       }
     }
   )
+
+  supervisor.onRxBatch((batch: RxBatch) => {
+    broadcast(VANILLABUS_IPC.rxBatch, batch)
+  })
 
   let previous: EngineStatus = supervisor.getStatus()
   supervisor.onStatus((status) => {

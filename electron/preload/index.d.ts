@@ -13,6 +13,9 @@ export type {
   EngineHello,
   EngineInfo,
   EngineStatus,
+  FrameDir,
+  FrameEvent,
+  RxBatch,
   Unsubscribe,
   VanillaBusApi
 } from '../../shared/engine'

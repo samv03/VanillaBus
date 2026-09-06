@@ -26,7 +26,9 @@ from can_engine.protocol import (
     error_message,
     heartbeat_message,
     hello_message,
+    rx_batch_message,
 )
+from can_engine.rx import RX_BATCH_INTERVAL_S, RX_BATCH_MAX_FRAMES
 
 LOG = logging.getLogger("vanillabus-engine")
 HEARTBEAT_INTERVAL_S = 2.0
@@ -84,63 +86,65 @@ def _payload(message: dict) -> dict:
     return raw if isinstance(raw, dict) else {}
 
 
-async def handle_request(
-    message: dict, writer: asyncio.StreamWriter, manager: BusManager
-) -> None:
+async def handle_request(message: dict, manager: BusManager, send) -> None:
     msg_type = message["type"]
     msg_id = message["id"] if isinstance(message.get("id"), str) else None
     payload = _payload(message)
 
     if msg_type == "engine.hello":
-        await write_message(writer, hello_message(msg_id))
+        await send(hello_message(msg_id))
         return
 
     if msg_type == "engine.heartbeat":
-        await write_message(writer, heartbeat_message(now_ts_us()))
+        await send(heartbeat_message(now_ts_us()))
         return
 
     try:
         if msg_type == "bus.list":
             listed = manager.list()
-            await write_message(writer, bus_list_message(listed["interfaces"], msg_id))
+            await send(bus_list_message(listed["interfaces"], msg_id))
             return
         if msg_type == "bus.open":
             opened = manager.open(payload.get("name"), payload.get("bitrate"))
-            await write_message(writer, bus_open_message(opened["busId"], msg_id))
+            await send(bus_open_message(opened["busId"], msg_id))
             return
         if msg_type == "bus.close":
             manager.close(payload.get("busId"))
-            await write_message(writer, bus_close_message(msg_id))
+            await send(bus_close_message(msg_id))
             return
     except BusError as exc:
-        await write_message(writer, error_message(exc.code, exc.message, msg_id))
+        await send(error_message(exc.code, exc.message, msg_id))
         return
     except Exception:
         LOG.exception("bus request %s failed", msg_type)
-        await write_message(
-            writer,
-            error_message("internal", f"{msg_type} failed unexpectedly", msg_id),
-        )
+        await send(error_message("internal", f"{msg_type} failed unexpectedly", msg_id))
         return
 
     if msg_type in KNOWN_TYPES:
-        await write_message(
-            writer,
-            error_message("not_implemented", f"{msg_type} is not implemented in T4", msg_id),
-        )
+        await send(error_message("not_implemented", f"{msg_type} is not implemented yet", msg_id))
         return
 
-    await write_message(
-        writer,
-        error_message("unknown_type", f"unknown message type: {msg_type}", msg_id),
-    )
+    await send(error_message("unknown_type", f"unknown message type: {msg_type}", msg_id))
 
 
-async def heartbeat_loop(writer: asyncio.StreamWriter) -> None:
+async def heartbeat_loop(send, writer: asyncio.StreamWriter) -> None:
     try:
         while not writer.is_closing():
             await asyncio.sleep(HEARTBEAT_INTERVAL_S)
-            await write_message(writer, heartbeat_message(now_ts_us()))
+            await send(heartbeat_message(now_ts_us()))
+    except (ConnectionError, BrokenPipeError, asyncio.CancelledError):
+        return
+
+
+async def rx_flush_loop(send, writer: asyncio.StreamWriter, manager: BusManager) -> None:
+    """Emit rx.batch: ≤16 ms idle delay, ≤500 frames per event."""
+    try:
+        while not writer.is_closing():
+            frames, dropped = manager.drain_rx(RX_BATCH_MAX_FRAMES)
+            if frames:
+                await send(rx_batch_message(frames, dropped))
+                continue
+            await asyncio.sleep(RX_BATCH_INTERVAL_S)
     except (ConnectionError, BrokenPipeError, asyncio.CancelledError):
         return
 
@@ -152,32 +156,43 @@ async def client_session(
 ) -> None:
     peer = writer.get_extra_info("peername")
     LOG.info("client connected %s", peer)
-    beat = asyncio.create_task(heartbeat_loop(writer), name="engine-heartbeat")
+    write_lock = asyncio.Lock()
+
+    async def send(message: dict) -> None:
+        if writer.is_closing():
+            return
+        async with write_lock:
+            await write_message(writer, message)
+
+    beat = asyncio.create_task(heartbeat_loop(send, writer), name="engine-heartbeat")
+    rx_task = asyncio.create_task(rx_flush_loop(send, writer, manager), name="engine-rx")
     try:
-        await write_message(writer, hello_message())
+        await send(hello_message())
         while True:
             try:
                 message = await read_message(reader)
             except ProtocolError as exc:
                 LOG.warning("malformed frame: %s (%s)", exc.code, exc.message)
                 try:
-                    await write_message(writer, error_message(exc.code, exc.message))
+                    await send(error_message(exc.code, exc.message))
                 except (ConnectionError, BrokenPipeError):
                     pass
                 break
             if message is None:
                 break
-            await handle_request(message, writer, manager)
+            await handle_request(message, manager, send)
     except (ConnectionError, BrokenPipeError):
         LOG.info("client connection dropped")
     except Exception:
         LOG.exception("client handler failed; connection closed")
     finally:
         beat.cancel()
-        try:
-            await beat
-        except asyncio.CancelledError:
-            pass
+        rx_task.cancel()
+        for task in (beat, rx_task):
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
         writer.close()
         try:
             await writer.wait_closed()

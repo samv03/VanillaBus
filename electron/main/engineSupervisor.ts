@@ -1,7 +1,14 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { delimiter, join } from 'node:path'
-import type { EngineHello, EngineStatus } from '../../shared/engine'
-import { EngineClient } from './engineClient'
+import type {
+  BusCloseOk,
+  BusInterface,
+  BusListOk,
+  BusOpenOk,
+  EngineHello,
+  EngineStatus
+} from '../../shared/engine'
+import { EngineClient, EngineRequestError } from './engineClient'
 import { createIpcSocketPath } from './ipcPath'
 
 const RESTART_DELAY_MS = 750
@@ -42,6 +49,40 @@ export class EngineSupervisor {
     return this.status
   }
 
+  async listBuses(): Promise<BusListOk> {
+    const payload = await this.request('bus.list')
+    const interfaces = parseInterfaces(payload.interfaces)
+    if (interfaces === null) {
+      throw new EngineRequestError('invalid_payload', 'bus.list response missing interfaces')
+    }
+    return { ok: true, interfaces }
+  }
+
+  async openBus(name: string, bitrate?: number): Promise<BusOpenOk> {
+    const payload: Record<string, unknown> = { name }
+    if (typeof bitrate === 'number') {
+      payload.bitrate = bitrate
+    }
+    const result = await this.request('bus.open', payload)
+    if (typeof result.busId !== 'string' || result.busId.length === 0) {
+      throw new EngineRequestError('invalid_payload', 'bus.open response missing busId')
+    }
+    return { ok: true, busId: result.busId }
+  }
+
+  async closeBus(busId: string): Promise<BusCloseOk> {
+    await this.request('bus.close', { busId })
+    return { ok: true }
+  }
+
+  private request(type: string, payload: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
+    const client = this.client
+    if (!client || !this.status.connected) {
+      return Promise.reject(new EngineRequestError('engine_disconnected', 'engine is not connected'))
+    }
+    return client.request(type, payload)
+  }
+
   /** Live engine PID, or null if no child is running. Used by the disconnect test. */
   getEnginePid(): number | null {
     const pid = this.child?.pid
@@ -50,7 +91,7 @@ export class EngineSupervisor {
 
   start(): void {
     if (process.platform !== 'linux') {
-      console.warn('[vanillabus] engine IPC is Linux-only in T2')
+      console.warn('[vanillabus] engine IPC is Linux-only')
       return
     }
     this.stopping = false
@@ -227,4 +268,27 @@ export class EngineSupervisor {
     }
     child.kill('SIGTERM')
   }
+}
+
+function parseInterfaces(raw: unknown): BusInterface[] | null {
+  if (!Array.isArray(raw)) {
+    return null
+  }
+  const interfaces: BusInterface[] = []
+  for (const item of raw) {
+    if (item === null || typeof item !== 'object' || Array.isArray(item)) {
+      continue
+    }
+    const record = item as Record<string, unknown>
+    if (typeof record.name !== 'string' || record.name.length === 0) {
+      continue
+    }
+    const state = record.state === 'up' || record.state === 'down' ? record.state : 'down'
+    interfaces.push({
+      name: record.name,
+      kind: typeof record.kind === 'string' && record.kind.length > 0 ? record.kind : 'socketcan',
+      state
+    })
+  }
+  return interfaces
 }

@@ -1,8 +1,15 @@
 import type { VanillaBusApi } from '../../shared/engine'
 
 export type {
+  BusCloseResult,
+  BusCommandError,
+  BusInterface,
+  BusInterfaceState,
+  BusListResult,
+  BusOpenResult,
   EngineConnectionEvent,
   EngineConnectionEventType,
+  EngineErrorPayload,
   EngineHello,
   EngineInfo,
   EngineStatus,

@@ -15,6 +15,7 @@
     "electron/main/**/*",
     "electron/preload/**/*",
     "scripts/test-preload-bridge.ts",
+    "scripts/test-bus-bridge.ts",
     "electron.vite.config.ts"
   ],
   "references": [{ "path": "./tsconfig.shared.json" }]

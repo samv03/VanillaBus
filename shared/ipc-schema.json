@@ -157,7 +157,7 @@
           }
         },
         "bus.list": {
-          "description": "List SocketCAN (and later adapter) interfaces. Engine-side only.",
+          "description": "List SocketCAN/vcan interfaces with kind hint and up/down state. Engine-side only.",
           "type": "object",
           "properties": {
             "direction": { "const": "request-response" },
@@ -172,9 +172,15 @@
                   "items": {
                     "type": "object",
                     "additionalProperties": false,
-                    "required": ["name"],
+                    "required": ["name", "kind", "state"],
                     "properties": {
-                      "name": { "type": "string", "examples": ["can0", "vcan0"] }
+                      "name": { "type": "string", "examples": ["can0", "vcan0"] },
+                      "kind": {
+                        "type": "string",
+                        "description": "Driver or kind hint (vcan, vxcan, kernel driver, socketcan).",
+                        "examples": ["vcan", "socketcan", "mcp251x"]
+                      },
+                      "state": { "type": "string", "enum": ["up", "down"] }
                     }
                   }
                 }
@@ -183,7 +189,7 @@
           }
         },
         "bus.open": {
-          "description": "Open a CAN interface in the engine. Not implemented in T2.",
+          "description": "Bind a SocketCAN interface that already exists and is UP. Returns busId. Fails with engine.error if missing or down; does not ip link set up. bitrate is optional and ignored for vcan.",
           "type": "object",
           "properties": {
             "direction": { "const": "request-response" },
@@ -192,25 +198,37 @@
               "additionalProperties": false,
               "required": ["name"],
               "properties": {
-                "name": { "type": "string" }
+                "name": { "type": "string" },
+                "bitrate": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Optional. Ignored for vcan. Not applied via ip link."
+                }
               }
             },
             "response": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["ok"],
+              "required": ["busId"],
               "properties": {
-                "ok": { "type": "boolean" }
+                "busId": { "type": "string" }
               }
             }
           }
         },
         "bus.close": {
-          "description": "Close the currently open CAN interface. Not implemented in T2.",
+          "description": "Close an open SocketCAN bus by busId. Reopen after close is allowed.",
           "type": "object",
           "properties": {
             "direction": { "const": "request-response" },
-            "request": { "type": "object", "additionalProperties": false, "properties": {} },
+            "request": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["busId"],
+              "properties": {
+                "busId": { "type": "string" }
+              }
+            },
             "response": {
               "type": "object",
               "additionalProperties": false,

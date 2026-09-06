@@ -2,7 +2,7 @@
   "name": "vanillabus",
   "productName": "VanillaBus",
   "version": "0.1.0",
-  "description": "SocketCAN-first desktop bus monitor (T3 preload bridge).",
+  "description": "SocketCAN-first desktop bus monitor (T4 bus.list / bus.open / bus.close).",
   "license": "GPL-3.0-or-later",
   "author": "Sam Vinella",
   "private": true,
@@ -16,7 +16,9 @@
     "preview": "electron-vite preview",
     "typecheck": "tsc -b --pretty false",
     "test:ipc": "python3 scripts/test-ipc-hello.py",
-    "test:bridge": "tsx --test scripts/test-preload-bridge.ts"
+    "test:bridge": "tsx --test scripts/test-preload-bridge.ts",
+    "test:bus": "python3 scripts/test-bus-open.py",
+    "test:bus-bridge": "tsx --test scripts/test-bus-bridge.ts"
   },
   "dependencies": {
     "react": "^19.2.8",

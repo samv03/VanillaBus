@@ -23,9 +23,9 @@ body {
 }
 
 .shell {
-  max-width: 40rem;
+  max-width: 46rem;
   margin: 0 auto;
-  padding: 4rem 1.5rem;
+  padding: 3rem 1.5rem 4rem;
 }
 
 .eyebrow {
@@ -157,4 +157,134 @@ dd {
 .hint {
   margin: 0.85rem 0 0;
   font-size: 0.85rem;
+}
+
+.bus-panel {
+  margin-top: 2rem;
+}
+
+.bus-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.bus-head h2 {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  color: #e8edf2;
+  background: #24303a;
+  border: 1px solid #3a4a57;
+  border-radius: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: #2d3b47;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #2a343d;
+  background: #161c21;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid #2a343d;
+}
+
+th {
+  color: #8aa0b3;
+  font-weight: 500;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+tr:last-child td {
+  border-bottom: 0;
+}
+
+.state-up {
+  color: #8fd4a8;
+}
+
+.state-down {
+  color: #f0a0a0;
+}
+
+.manual-open {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.65rem;
+  margin: 0.9rem 0 0;
+}
+
+.manual-open label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+  color: #8aa0b3;
+  font-size: 0.8rem;
+}
+
+.manual-open input {
+  font: inherit;
+  color: #e8edf2;
+  background: #101418;
+  border: 1px solid #2a343d;
+  border-radius: 0.35rem;
+  padding: 0.4rem 0.55rem;
+}
+
+.open-list {
+  margin: 0.85rem 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid #2a343d;
+  background: #161c21;
+}
+
+.open-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid #2a343d;
+  word-break: break-all;
+}
+
+.open-list li:last-child {
+  border-bottom: 0;
+}
+
+.bus-result {
+  margin: 0.85rem 0 0;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid #2a343d;
+  background: #161c21;
+  font-size: 0.9rem;
+}
+
+.bus-result-error {
+  color: #f0a0a0;
+  border-color: #6b3333;
+  background: #2a1616;
 }

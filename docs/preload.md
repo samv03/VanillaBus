@@ -2,7 +2,7 @@
 
 The renderer talks to the engine **only** through this context-bridge surface.
 It is typed in `shared/engine.ts` and implemented by `electron/preload/index.ts`.
-Main maps supervisor status onto it in `electron/main/ipc-bridge.ts`.
+Main maps supervisor status and bus RPCs onto it in `electron/main/ipc-bridge.ts`.
 
 There is no `window.vanillabusApi` alias. Use `window.vanillabus`.
 
@@ -16,6 +16,9 @@ window.vanillabus = {
   onEngineEvent(listener): Unsubscribe  // { type: 'connected' | 'disconnected', info }
   onConnected(listener): Unsubscribe
   onDisconnected(listener): Unsubscribe
+  listBuses(): Promise<BusListResult>
+  openBus(name, bitrate?): Promise<BusOpenResult>
+  closeBus(busId): Promise<BusCloseResult>
 }
 ```
 
@@ -29,6 +32,11 @@ window.vanillabus = {
 | `backends` | `["socketcan"]` | `[]` |
 | `hello` | `{ name, version, backends }` | `null` |
 
+Bus results are tagged `{ ok: true, … }` or
+`{ ok: false, error: { code, message } }` so a down/missing iface does not
+throw through the renderer. Engine codes include `iface_not_found`,
+`iface_down`, `bus_not_found`, `engine_disconnected`.
+
 The renderer never receives Unix-socket frames, file paths, SocketCAN handles,
 or DBC objects.
 
@@ -38,9 +46,11 @@ or DBC objects.
 | --- | --- | --- |
 | `vanillabus:engine-info` | invoke + event | `EngineInfo` |
 | `vanillabus:engine-event` | event | `EngineConnectionEvent` |
+| `vanillabus:bus-list` | invoke | `BusListResult` |
+| `vanillabus:bus-open` | invoke | `BusOpenResult` |
+| `vanillabus:bus-close` | invoke | `BusCloseResult` |
 
-T2 engine IPC (`engine.hello`, `engine.heartbeat`, respawn) is unchanged. This
-bridge only relays host status.
+T2 engine IPC (`engine.hello`, `engine.heartbeat`, respawn) is unchanged.
 
 ## Observing Disconnected
 
@@ -52,3 +62,12 @@ bridge only relays host status.
 
 Automated: `npm run test:bridge` starts the supervisor, waits for hello, kills
 the child PID, and asserts a `disconnected` then `connected` transition.
+
+## List / open / close
+
+1. Bring up an iface: `sudo ./scripts/setup-vcan.sh`
+2. Click **List buses** — `vcan0` should appear with kind `vcan` and state `up`.
+3. **Open** returns a `busId`. **Close** then **Open** again works (new id).
+4. Open a missing name (e.g. `vb_missing0`) — status shows `iface_not_found`.
+
+Automated: `npm run test:bus` and `npm run test:bus-bridge`.

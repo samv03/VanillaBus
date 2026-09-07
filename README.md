@@ -175,6 +175,7 @@ python3 scripts/test-rate-ms.py       # T6 rate_ms median (synthetic + optional 
 python3 scripts/test-dbc-unpack.py    # T7 golden unpack + mux + allowlist
 # or: npm run test:dbc
 npm run test:dbc-bridge               # parseFrameEvent decode + supervisor load/clear (tsx)
+npm run test:dbc-browse               # native DBC picker filters / default path (tsx)
 npm run test:shell                    # T8 hash tabs — plain node, no tsx / --test
 npm run test:trace                    # T9 ring / filter / N2 first-paint (tsx)
 npm run test:graph                    # T11 decimation / pause / window (tsx)

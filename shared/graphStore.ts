@@ -38,17 +38,19 @@ export type GraphUplotBundle = {
 
 class SeriesBuffer {
   samples: GraphSample[] = []
+  private binStartUs: number | null = null
 
   append(tsUs: number, value: number, intervalUs: number): void {
     const last = this.samples[this.samples.length - 1]
     if (last && tsUs < last.ts_us) {
       return
     }
-    if (last && shouldReplaceLastSample(last.ts_us, tsUs, intervalUs)) {
+    if (shouldReplaceLastSample(this.binStartUs, tsUs, intervalUs)) {
       this.samples[this.samples.length - 1] = { ts_us: tsUs, value }
       return
     }
     this.samples.push({ ts_us: tsUs, value })
+    this.binStartUs = tsUs
   }
 
   trim(startUs: number): void {
@@ -59,10 +61,14 @@ class SeriesBuffer {
     if (index > 0) {
       this.samples = this.samples.slice(index)
     }
+    if (this.samples.length === 0) {
+      this.binStartUs = null
+    }
   }
 
   clear(): void {
     this.samples = []
+    this.binStartUs = null
   }
 }
 

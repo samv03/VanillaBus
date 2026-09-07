@@ -4,14 +4,14 @@
  */
 
 export function shouldReplaceLastSample(
-  lastTsUs: number | null,
+  binStartUs: number | null,
   nextTsUs: number,
   intervalUs: number
 ): boolean {
-  if (lastTsUs === null) {
+  if (binStartUs === null) {
     return false
   }
-  return nextTsUs - lastTsUs < intervalUs
+  return nextTsUs - binStartUs < intervalUs
 }
 
 export type DecimatePoint = {
@@ -28,12 +28,13 @@ export function decimatePoints(
   intervalUs: number
 ): DecimatePoint[] {
   const out: DecimatePoint[] = []
+  let binStartUs: number | null = null
   for (const point of points) {
-    const last = out[out.length - 1]
-    if (last !== undefined && shouldReplaceLastSample(last.ts_us, point.ts_us, intervalUs)) {
+    if (shouldReplaceLastSample(binStartUs, point.ts_us, intervalUs)) {
       out[out.length - 1] = point
     } else {
       out.push(point)
+      binStartUs = point.ts_us
     }
   }
   return out

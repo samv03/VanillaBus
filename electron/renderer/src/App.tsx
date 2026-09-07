@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import { DISCONNECTED_ENGINE_INFO, type BusInterface, type EngineInfo } from '../../../shared/engine'
 import { parseAppTab, type AppTab } from '../../../shared/appTabs'
+import { useGraphModel } from './graph/useGraphModel'
 import { GraphScreen } from './screens/GraphScreen'
 import { TraceScreen } from './screens/TraceScreen'
 import { TransmitScreen } from './screens/TransmitScreen'
@@ -27,6 +28,7 @@ export function App(): ReactElement {
   const [listing, setListing] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const trace = useTraceModel()
+  const graph = useGraphModel()
 
   useEffect(() => {
     const onHashChange = (): void => {
@@ -47,18 +49,22 @@ export function App(): ReactElement {
     }
     void api.getEngineInfo().then(setInfo)
     const offStatus = api.onEngineStatus(setInfo)
-    const offRx = api.onRxBatch(trace.appendBatch)
+    const offRx = api.onRxBatch((batch) => {
+      trace.appendBatch(batch)
+      graph.appendBatch(batch)
+    })
     return () => {
       offStatus()
       offRx()
     }
-  }, [api, trace.appendBatch])
+  }, [api, graph.appendBatch, trace.appendBatch])
 
   useEffect(() => {
     if (!info.connected) {
       setInterfaces([])
       setOpened([])
       trace.reset()
+      graph.reset()
     }
   }, [info.connected])
 
@@ -129,6 +135,7 @@ export function App(): ReactElement {
       )
     )
     setDbcPath(path)
+    graph.applyDbcCatalog(result.catalog)
     setBusStatus({
       kind: 'ok',
       text: `Loaded ${path} (${result.message_count} messages) on ${busId}`
@@ -212,7 +219,7 @@ export function App(): ReactElement {
       }
     >
       {tab === 'trace' ? <TraceScreen model={trace} /> : null}
-      {tab === 'graph' ? <GraphScreen /> : null}
+      {tab === 'graph' ? <GraphScreen model={graph} /> : null}
       {tab === 'transmit' ? <TransmitScreen /> : null}
     </AppShell>
   )

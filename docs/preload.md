@@ -40,10 +40,13 @@ Bus results are tagged `{ ok: true, … }` or
 throw through the renderer. Engine codes include `iface_not_found`,
 `iface_down`, `bus_not_found`, `engine_disconnected`.
 
-`loadDbc` / `clearDbc` return `{ ok: true, message_count }` / `{ ok: true }` or
-`{ ok: false, error: { code, message } }`. Engine codes include
-`path_not_allowed`, `dbc_not_found`, `dbc_invalid`, and `bus_not_found`.
-The renderer forwards a repo-relative fixture path; cantools runs in the engine.
+`loadDbc` / `clearDbc` return `{ ok: true, message_count, catalog }` /
+`{ ok: true }` or `{ ok: false, error: { code, message } }`. `catalog` is
+the DBC message/signal list for the Graph picker (empty if omitted).
+Engine codes include `path_not_allowed`, `dbc_not_found`, `dbc_invalid`,
+and `bus_not_found`. The renderer forwards a repo-relative fixture path;
+cantools runs in the engine. Graph never invents mux branches — it only
+plots numeric values present on `decode.signals`.
 
 The renderer never receives Unix-socket frames, SocketCAN handles, or DBC
 objects. Trace displays `decode.name` / `decode.signals` / `decode.units`
@@ -65,6 +68,8 @@ from `rx.batch` in an expandable row.
 T2 engine IPC (`engine.hello`, `engine.heartbeat`, respawn) is unchanged.
 `rx.batch` still carries T5 frames, T6 `rate_ms`, and optional T7 `decode`.
 T9 Trace virtualizes that stream (filter / pause / clear / scroll lock).
+T11 Graph subscribes to the same `rx.batch` with its own pause and a
+10–30 Hz uPlot redraw.
 
 ## Observing Disconnected
 
@@ -113,3 +118,16 @@ Rate median: `npm run test:rate`.
 4. Inject an unknown ID (`cansend vcan0 7FF#DEADBEEF`) — the row stays raw.
 
 Automated: `npm run test:dbc` and `npm run test:dbc-bridge`.
+
+## Graph (T11)
+
+1. Connect a bus and **Load** a DBC as above (or use DEV **Demo** on Graph).
+2. Open the **Graph** tab. The left picker lists catalog signals from
+   `dbc.load` plus any `decode.signals` already seen on `rx.batch`.
+3. Check signals to plot. Window chips set 10s / 30s / 60s of history.
+   **Pause** freezes Graph only — Trace keeps its own pause.
+4. uPlot redraws at 10–30 Hz. Samples older than the window are dropped.
+   Multiplexed signals appear only when they are present on `decode.signals`.
+
+Automated: `npm run test:graph` (synthetic decimation / pause / window;
+live SKIP if vcan0 is not UP).

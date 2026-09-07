@@ -146,6 +146,25 @@ def unpack_frame(database: Any, frame: dict[str, Any]) -> dict[str, Any] | None:
     return {"name": str(message.name), "signals": signals, "units": units}
 
 
+def catalog_from_database(database: Any) -> list[dict[str, Any]]:
+    """Lightweight message/signal list for the Graph picker. No mux rules."""
+    catalog: list[dict[str, Any]] = []
+    for message in getattr(database, "messages", None) or []:
+        signals: list[dict[str, str]] = []
+        for signal in getattr(message, "signals", None) or []:
+            name = getattr(signal, "name", None)
+            if not isinstance(name, str) or not name:
+                continue
+            unit = getattr(signal, "unit", None)
+            signals.append({"name": name, "unit": unit if isinstance(unit, str) else ""})
+        frame_id = getattr(message, "frame_id", None)
+        msg_name = getattr(message, "name", None)
+        if not isinstance(msg_name, str) or not isinstance(frame_id, int):
+            continue
+        catalog.append({"name": msg_name, "can_id": int(frame_id), "signals": signals})
+    return catalog
+
+
 class DbcStore:
     """In-process map of busId → loaded cantools database."""
 
@@ -164,6 +183,7 @@ class DbcStore:
             "ok": True,
             "message_count": len(database.messages),
             "path": str(resolved),
+            "catalog": catalog_from_database(database),
         }
 
     def clear(self, bus_id: str) -> dict[str, Any]:

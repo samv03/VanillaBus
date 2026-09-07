@@ -76,9 +76,22 @@ export type BusListResult = BusListOk | BusCommandError
 export type BusOpenResult = BusOpenOk | BusCommandError
 export type BusCloseResult = BusCloseOk | BusCommandError
 
+export type DbcCatalogSignal = {
+  readonly name: string
+  readonly unit: string
+}
+
+/** Message → signals from dbc.load so Graph can pick before RX arrives. */
+export type DbcCatalogMessage = {
+  readonly name: string
+  readonly can_id: number
+  readonly signals: readonly DbcCatalogSignal[]
+}
+
 export type DbcLoadOk = {
   readonly ok: true
   readonly message_count: number
+  readonly catalog: readonly DbcCatalogMessage[]
 }
 
 export type DbcClearOk = {
@@ -293,4 +306,41 @@ export function parseRxBatch(raw: unknown): RxBatch | null {
   }
   const dropped = typeof record.dropped === 'number' && Number.isInteger(record.dropped) ? record.dropped : 0
   return { frames, dropped }
+}
+
+export function parseDbcCatalog(raw: unknown): DbcCatalogMessage[] {
+  if (!Array.isArray(raw)) {
+    return []
+  }
+  const catalog: DbcCatalogMessage[] = []
+  for (const item of raw) {
+    if (item === null || typeof item !== 'object' || Array.isArray(item)) {
+      continue
+    }
+    const record = item as Record<string, unknown>
+    if (typeof record.name !== 'string' || record.name.length === 0) {
+      continue
+    }
+    if (typeof record.can_id !== 'number' || !Number.isInteger(record.can_id) || record.can_id < 0) {
+      continue
+    }
+    const signals: DbcCatalogSignal[] = []
+    if (Array.isArray(record.signals)) {
+      for (const signal of record.signals) {
+        if (signal === null || typeof signal !== 'object' || Array.isArray(signal)) {
+          continue
+        }
+        const sig = signal as Record<string, unknown>
+        if (typeof sig.name !== 'string' || sig.name.length === 0) {
+          continue
+        }
+        signals.push({
+          name: sig.name,
+          unit: typeof sig.unit === 'string' ? sig.unit : ''
+        })
+      }
+    }
+    catalog.push({ name: record.name, can_id: record.can_id, signals })
+  }
+  return catalog
 }

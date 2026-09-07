@@ -59,8 +59,15 @@ def rx_batch_message(frames: list[dict[str, Any]], dropped: int = 0) -> dict[str
     return envelope("rx.batch", {"frames": frames, "dropped": dropped})
 
 
-def dbc_load_message(message_count: int, msg_id: str | None = None) -> dict[str, Any]:
-    return envelope("dbc.load", {"ok": True, "message_count": message_count}, msg_id)
+def dbc_load_message(
+    message_count: int,
+    msg_id: str | None = None,
+    catalog: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {"ok": True, "message_count": message_count}
+    if catalog is not None:
+        payload["catalog"] = catalog
+    return envelope("dbc.load", payload, msg_id)
 
 
 def dbc_clear_message(msg_id: str | None = None) -> dict[str, Any]:

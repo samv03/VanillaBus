@@ -3,9 +3,9 @@ import { parseCanIdHex, parseDataHex } from '../../../../shared/txFormat'
 import type { OpenedBus } from '../shell/types'
 import { CyclicJobsTable } from '../transmit/CyclicJobsTable'
 import { DbcPackPlaceholder } from '../transmit/DbcPackPlaceholder'
-import { RawSendPanel, type RawSendDraft } from '../transmit/RawSendPanel'
+import { RawSendPanel } from '../transmit/RawSendPanel'
 import { TransmitFooter } from '../transmit/TransmitFooter'
-import type { TransmitModel } from '../transmit/useTransmitModel'
+import type { RawSendDraft, TransmitModel } from '../transmit/useTransmitModel'
 
 type TransmitScreenProps = {
   readonly model: TransmitModel
@@ -14,37 +14,22 @@ type TransmitScreenProps = {
   readonly engineConnected: boolean
 }
 
-const DEFAULT_DRAFT: RawSendDraft = {
-  busName: 'vcan0',
-  idHex: '0x7E0',
-  dataHex: '02 10 0C 00 00 00 00 00',
-  mode: 'oneshot',
-  periodMs: 100,
-  isEff: false,
-  isRtr: false,
-  isFd: false
-}
-
 export function TransmitScreen({
   model,
   opened,
   selectedBus,
   engineConnected
 }: TransmitScreenProps): ReactElement {
-  const [draft, setDraft] = useState<RawSendDraft>({ ...DEFAULT_DRAFT, busName: selectedBus || 'vcan0' })
   const [sending, setSending] = useState(false)
   const [starting, setStarting] = useState(false)
 
   useEffect(() => {
-    if (selectedBus.length === 0) {
-      return
-    }
-    setDraft((current) => (current.busName === selectedBus ? current : { ...current, busName: selectedBus }))
-  }, [selectedBus])
+    model.syncSelectedBus(selectedBus)
+  }, [model.syncSelectedBus, selectedBus])
 
   const target = useMemo(
-    () => opened.find((item) => item.name === draft.busName) ?? opened[0],
-    [draft.busName, opened]
+    () => opened.find((item) => item.name === model.draft.busName) ?? opened[0],
+    [model.draft.busName, opened]
   )
 
   const canStopRaw = model.jobs.some(
@@ -52,7 +37,7 @@ export function TransmitScreen({
   )
 
   async function handleSend(): Promise<void> {
-    const request = buildRequest(draft, target?.busId)
+    const request = buildRequest(model.draft, target?.busId)
     if (!request) {
       return
     }
@@ -65,14 +50,14 @@ export function TransmitScreen({
   }
 
   async function handleStart(): Promise<void> {
-    const request = buildRequest(draft, target?.busId)
+    const request = buildRequest(model.draft, target?.busId)
     if (!request || !target) {
       return
     }
     setStarting(true)
     try {
       await model.startCyclic(
-        { ...request, period_ms: draft.periodMs },
+        { ...request, period_ms: model.draft.periodMs },
         {
           type: 'Raw',
           busId: target.busId,
@@ -80,7 +65,7 @@ export function TransmitScreen({
           canId: request.can_id,
           isEff: request.is_eff ?? false,
           data: request.data,
-          periodMs: draft.periodMs
+          periodMs: model.draft.periodMs
         }
       )
     } finally {
@@ -92,8 +77,8 @@ export function TransmitScreen({
     <div className="tx-screen">
       <div className="tx-columns">
         <RawSendPanel
-          draft={draft}
-          onChange={setDraft}
+          draft={model.draft}
+          onChange={model.setDraft}
           opened={opened}
           engineConnected={engineConnected}
           sending={sending}

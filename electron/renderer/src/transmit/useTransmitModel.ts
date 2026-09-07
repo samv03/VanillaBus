@@ -34,7 +34,34 @@ export type TransmitStats = {
   readonly lastTx: LastTx | null
 }
 
+export type SendMode = 'oneshot' | 'cyclic'
+
+export type RawSendDraft = {
+  readonly busName: string
+  readonly idHex: string
+  readonly dataHex: string
+  readonly mode: SendMode
+  readonly periodMs: number
+  readonly isEff: boolean
+  readonly isRtr: boolean
+  readonly isFd: boolean
+}
+
+export const DEFAULT_RAW_DRAFT: RawSendDraft = {
+  busName: 'vcan0',
+  idHex: '0x7E0',
+  dataHex: '02 10 0C 00 00 00 00 00',
+  mode: 'oneshot',
+  periodMs: 100,
+  isEff: false,
+  isRtr: false,
+  isFd: false
+}
+
 export type TransmitModel = {
+  readonly draft: RawSendDraft
+  setDraft: (next: RawSendDraft) => void
+  syncSelectedBus: (name: string) => void
   readonly jobs: readonly CyclicJobRow[]
   readonly stats: TransmitStats
   readonly lastRawJobId: string | null
@@ -54,9 +81,17 @@ function lastTxFromFrame(frame: FrameEvent): LastTx {
 }
 
 export function useTransmitModel(api: VanillaBusApi | undefined): TransmitModel {
+  const [draft, setDraft] = useState<RawSendDraft>(DEFAULT_RAW_DRAFT)
   const [jobs, setJobs] = useState<CyclicJobRow[]>([])
   const [stats, setStats] = useState<TransmitStats>(EMPTY_STATS)
   const [lastRawJobId, setLastRawJobId] = useState<string | null>(null)
+
+  const syncSelectedBus = useCallback((name: string): void => {
+    if (name.length === 0) {
+      return
+    }
+    setDraft((current) => (current.busName === name ? current : { ...current, busName: name }))
+  }, [])
 
   const noteError = useCallback((): void => {
     setStats((current) => ({ ...current, errors: current.errors + 1 }))
@@ -165,12 +200,16 @@ export function useTransmitModel(api: VanillaBusApi | undefined): TransmitModel 
   }, [])
 
   const reset = useCallback((): void => {
+    setDraft(DEFAULT_RAW_DRAFT)
     setJobs([])
     setStats(EMPTY_STATS)
     setLastRawJobId(null)
   }, [])
 
   return {
+    draft,
+    setDraft,
+    syncSelectedBus,
     jobs,
     stats,
     lastRawJobId,

@@ -2,19 +2,9 @@ import { useMemo, type ReactElement } from 'react'
 import { formatCanIdPrefixed } from '../../../../shared/traceFormat'
 import { formatDataByteCount, parseCanIdHex, parseDataHex } from '../../../../shared/txFormat'
 import type { OpenedBus } from '../shell/types'
+import type { RawSendDraft } from './useTransmitModel'
 
-export type SendMode = 'oneshot' | 'cyclic'
-
-export type RawSendDraft = {
-  readonly busName: string
-  readonly idHex: string
-  readonly dataHex: string
-  readonly mode: SendMode
-  readonly periodMs: number
-  readonly isEff: boolean
-  readonly isRtr: boolean
-  readonly isFd: boolean
-}
+export type { RawSendDraft, SendMode } from './useTransmitModel'
 
 type RawSendPanelProps = {
   readonly draft: RawSendDraft

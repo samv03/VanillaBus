@@ -113,7 +113,7 @@ export function GraphPicker({
         )}
       </div>
       <p className="graph-picker-count muted">
-        {selected.length} / {entries.length} signals selected
+        {selected.length} selected · {entries.length} listed
       </p>
     </aside>
   )

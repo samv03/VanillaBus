@@ -13,8 +13,10 @@ name is missing or the iface is **down**, the engine returns a structured
 Bring the interface up **before** opening it from the app:
 
 ```bash
-sudo ./scripts/setup-vcan.sh          # creates vcan0 and sets it UP
-# or, if vcan0 already exists:
+sudo ./scripts/setup-vcan.sh          # creates vcan0 + vcan1 and sets them UP
+# or a single iface:
+sudo ./scripts/setup-vcan.sh vcan0
+# or, if the iface already exists:
 sudo ip link set up vcan0
 ```
 

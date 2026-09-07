@@ -223,7 +223,7 @@
           }
         },
         "bus.open": {
-          "description": "Bind a SocketCAN interface that already exists and is UP. Returns busId. Fails with engine.error if missing or down; does not ip link set up. bitrate is optional and ignored for vcan.",
+          "description": "Bind a SocketCAN interface that already exists and is UP. Returns busId. Multiple buses may be open at once (one handle per iface). Fails with engine.error if missing, down, or already open (iface_not_found / iface_down / iface_already_open); does not ip link set up. bitrate is optional and ignored for vcan.",
           "type": "object",
           "properties": {
             "direction": { "const": "request-response" },

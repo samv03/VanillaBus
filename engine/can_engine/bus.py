@@ -2,6 +2,10 @@
 
 MVP: bind an interface that already exists and is UP. Never `ip link set up`
 or set bitrate via CAP_NET_ADMIN. Bitrate is optional and ignored for vcan.
+
+T14: several buses may be open at once. Each busId has its own RX pump,
+DBC, rate keys, send lock, and cyclic TX jobs. Opening the same iface
+twice is `iface_already_open`. Closing one busId does not tear down others.
 """
 
 from __future__ import annotations
@@ -183,6 +187,11 @@ class BusManager:
                 f"{channel} is down; bring it up first "
                 f"(e.g. sudo ./scripts/setup-vcan.sh) — VanillaBus will not ip link set up",
             )
+        if channel in self._names.values():
+            raise BusError(
+                "iface_already_open",
+                f"{channel} is already open; connect a different iface or disconnect first",
+            )
 
         # vcan has no kernel bitrate; ignore the optional field.
         apply_bitrate = None if info["kind"] in {"vcan", "vxcan"} else parsed_bitrate
@@ -195,6 +204,10 @@ class BusManager:
         self._send_locks[bus_id] = threading.Lock()
         pump.start()
         return {"busId": bus_id}
+
+    def opened(self) -> list[dict[str, str]]:
+        """busId + iface name for every concurrently open bus (T14)."""
+        return [{"busId": bus_id, "name": self._names[bus_id]} for bus_id in self._buses]
 
     def load_dbc(self, bus_id: object, path: object) -> dict[str, Any]:
         if not isinstance(bus_id, str) or not bus_id:
@@ -211,13 +224,29 @@ class BusManager:
         return self._dbc.clear(bus_id)
 
     def drain_rx(self, max_frames: int = RX_BATCH_MAX_FRAMES) -> tuple[list[dict[str, Any]], int]:
-        """Take up to max_frames queued RX frames plus the cumulative drop count."""
+        """Take up to max_frames queued RX frames plus the cumulative drop count.
+
+        Fair across buses: each open pump gets an equal first share so a hot
+        iface cannot starve another in the same rx.batch.
+        """
         frames: list[dict[str, Any]] = []
         dropped = 0
-        for pump in list(self._pumps.values()):
+        pumps = list(self._pumps.values())
+        for pump in pumps:
             dropped += pump.dropped
+        if not pumps or max_frames <= 0:
+            return frames, dropped
+        share = max(1, max_frames // len(pumps))
+        for pump in pumps:
             room = max_frames - len(frames)
-            if room > 0:
+            if room <= 0:
+                break
+            frames.extend(pump.drain(min(share, room)))
+        if len(frames) < max_frames:
+            for pump in pumps:
+                room = max_frames - len(frames)
+                if room <= 0:
+                    break
                 frames.extend(pump.drain(room))
         return frames, dropped
 

@@ -85,6 +85,8 @@ export class GraphStore {
   messageCount = 0
   errorCount = 0
   updatedUs: number | null = null
+  /** When set, only frames from this busId are plotted. null = all (tests / demo). */
+  activeBusId: string | null = null
 
   private readonly recentTs: number[] = []
   private readonly series = new Map<string, SeriesBuffer>()
@@ -108,6 +110,16 @@ export class GraphStore {
   setHz(next: number): void {
     this.hz = clampGraphHz(next)
     this.trimAll()
+  }
+
+  setActiveBus(busId: string | null): void {
+    if (this.activeBusId === busId) {
+      return
+    }
+    this.activeBusId = busId
+    this.clearSamples()
+    this.catalog.clear()
+    this.selected.length = 0
   }
 
   applyDbcCatalog(messages: readonly DbcCatalogMessage[]): void {
@@ -226,6 +238,7 @@ export class GraphStore {
     this.windowSec = GRAPH_DEFAULT_WINDOW_SEC
     this.hz = GRAPH_DEFAULT_HZ
     this.engineDropped = 0
+    this.activeBusId = null
     this.series.clear()
     this.catalog.clear()
     this.selected.length = 0
@@ -283,6 +296,9 @@ export class GraphStore {
   }
 
   private ingestFrame(frame: FrameEvent): void {
+    if (this.activeBusId !== null && frame.busId !== this.activeBusId) {
+      return
+    }
     this.messageCount += 1
     if (frame.is_err) {
       this.errorCount += 1

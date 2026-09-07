@@ -1,12 +1,14 @@
 import type { ReactElement } from 'react'
 import type { BusInterface } from '../../../../shared/engine'
-import { formatStatus, type BusActionStatus, type OpenedDbc } from './types'
+import { formatBusOptionLabel } from '../../../../shared/multiBus'
+import { formatStatus, type BusActionStatus, type OpenedBus, type OpenedDbc } from './types'
 
 const DBC_PRESETS = ['fixtures/dbc/sample.dbc', 'fixtures/dbc/mux.dbc'] as const
 
 type SharedHeaderProps = {
   readonly engineConnected: boolean
   readonly interfaces: readonly BusInterface[]
+  readonly opened: readonly OpenedBus[]
   readonly selectedBus: string
   readonly onSelectBus: (name: string) => void
   readonly busConnected: boolean
@@ -24,6 +26,7 @@ type SharedHeaderProps = {
 export function SharedHeader({
   engineConnected,
   interfaces,
+  opened,
   selectedBus,
   onSelectBus,
   busConnected,
@@ -38,8 +41,17 @@ export function SharedHeader({
   status
 }: SharedHeaderProps): ReactElement {
   const names = interfaces.map((iface) => iface.name)
-  const options = names.includes(selectedBus) || selectedBus.length === 0 ? names : [selectedBus, ...names]
+  const extra = opened.map((item) => item.name).filter((name) => !names.includes(name))
+  const options =
+    names.includes(selectedBus) || selectedBus.length === 0
+      ? [...names, ...extra]
+      : [selectedBus, ...names, ...extra.filter((name) => name !== selectedBus)]
+  const uniqueOptions = [...new Set(options)]
   const selectedMeta = interfaces.find((iface) => iface.name === selectedBus)
+  const openHint =
+    opened.length === 0
+      ? 'No bus open'
+      : `Open: ${opened.map((item) => item.name).join(', ')} · active ${selectedBus || '—'}`
 
   return (
     <header className="shared-header">
@@ -50,20 +62,19 @@ export function SharedHeader({
             <select
               className="mono"
               value={selectedBus}
-              disabled={!engineConnected || options.length === 0}
+              disabled={!engineConnected || uniqueOptions.length === 0}
               onChange={(event) => onSelectBus(event.target.value)}
               aria-label="Bus"
             >
-              {options.length === 0 ? (
+              {uniqueOptions.length === 0 ? (
                 <option value="">No buses listed</option>
               ) : (
-                options.map((name) => {
+                uniqueOptions.map((name) => {
                   const iface = interfaces.find((item) => item.name === name)
-                  const suffix = iface ? ` (${iface.kind}, ${iface.state})` : ''
+                  const open = opened.some((item) => item.name === name)
                   return (
                     <option key={name} value={name}>
-                      {name}
-                      {suffix}
+                      {formatBusOptionLabel(name, iface, open)}
                     </option>
                   )
                 })
@@ -86,10 +97,10 @@ export function SharedHeader({
             offLabel="Disconnected"
             hint={
               selectedMeta
-                ? `${selectedMeta.name} ${selectedMeta.state}`
+                ? `${selectedMeta.name} ${selectedMeta.state} · ${openHint}`
                 : busConnected
-                  ? selectedBus
-                  : 'No bus open'
+                  ? openHint
+                  : openHint
             }
           />
         </div>
@@ -136,6 +147,31 @@ export function SharedHeader({
           />
         </div>
       </div>
+      {opened.length > 0 ? (
+        <div className="header-open-buses" role="group" aria-label="Open buses">
+          <span className="header-open-label">Open</span>
+          {opened.map((item) => {
+            const active = item.name === selectedBus
+            const dbcName = item.dbc ? item.dbc.path.split('/').pop() : null
+            return (
+              <button
+                key={item.busId}
+                type="button"
+                className={active ? 'header-open-chip header-open-chip-active' : 'header-open-chip'}
+                aria-pressed={active}
+                onClick={() => onSelectBus(item.name)}
+                title={`${item.name} · busId ${item.busId}${item.dbc ? ` · ${item.dbc.path}` : ''}`}
+              >
+                <span className="mono">{item.name}</span>
+                {dbcName ? <span className="header-open-chip-dbc"> · {dbcName}</span> : null}
+              </button>
+            )
+          })}
+          <span className="header-open-hint muted">
+            Select a chip or the dropdown, then Load / TX. Disconnect closes only the active bus.
+          </span>
+        </div>
+      ) : null}
       <p
         className={status.kind === 'error' ? 'header-status header-status-error' : 'header-status'}
         aria-live="polite"

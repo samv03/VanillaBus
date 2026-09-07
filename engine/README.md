@@ -11,8 +11,9 @@ frames). T6 fills `rate_ms` as the last inter-arrival (`(Δts_us)/1000`) per
 and engine-owned `tx.cyclic.start` / `tx.cyclic.stop`. T13 packs DBC
 payloads (`message` + `signals`) with cantools using the DBC already
 bound to `busId`, then sends the raw frame. Successful TX is echoed
-with `dir=tx` onto `rx.batch`. Close clears that busId's rate, DBC, and
-cyclic jobs.
+with `dir=tx` onto `rx.batch`. T14 keeps several buses open at once;
+each `busId` has an independent DBC / RX pump / rate / TX jobs. Close
+clears only that busId's rate, DBC, and cyclic jobs.
 
 The engine binds an iface only if it already exists and is UP. It never
 `ip link set up`. See [docs/privileges.md](../docs/privileges.md).
@@ -44,6 +45,7 @@ python3 scripts/test-rate-ms.py
 python3 scripts/test-dbc-unpack.py
 python3 scripts/test-tx.py
 python3 scripts/test-tx-dbc.py
+python3 scripts/test-multibus.py
 ```
 
 The M1 desktop smoke (`npm run test:smoke` from the repo root) also spawns

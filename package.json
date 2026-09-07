@@ -2,7 +2,7 @@
   "name": "vanillabus",
   "productName": "VanillaBus",
   "version": "0.1.0",
-    "description": "SocketCAN-first desktop bus monitor (T13 DBC pack TX).",
+    "description": "SocketCAN-first desktop bus monitor (T14 multi-bus + DBC-per-bus).",
   "license": "GPL-3.0-or-later",
   "author": "Sam Vinella",
   "private": true,
@@ -30,6 +30,7 @@
     "test:tx": "python3 scripts/test-tx.py",
     "test:tx-dbc": "python3 scripts/test-tx-dbc.py",
     "test:tx-bridge": "tsx --test scripts/test-tx-bridge.ts",
+    "test:multibus": "python3 scripts/test-multibus.py && tsx --test scripts/test-multibus.ts",
     "test:smoke": "tsx --test scripts/test-smoke.ts",
     "test:smoke:electron": "bash scripts/smoke-electron.sh",
     "test:m1": "npm run test:smoke && npm run test:smoke:electron"

@@ -38,10 +38,12 @@ VanillaBus is a SocketCAN-first desktop bus monitor.
   `rx.batch` onto those preload channels.
 - **Engine** is a Python package. All bus I/O and DBC unpack belong here
   (python-can + cantools). After `bus.open` a recv thread batches frames onto
-  IPC. `tx.send` / `tx.cyclic.*` are engine-owned SocketCAN sends (raw bytes
-  or cantools-packed DBC signals). Successful TX is echoed with `dir=tx`
-  onto the RX queue. `dbc.load` binds one DBC per busId. Interfaces must
-  already be UP; see [privileges.md](privileges.md).
+  IPC. Several buses may be open at once (T14): each `busId` has its own
+  RX pump, DBC, rate keys, and cyclic TX jobs. `tx.send` / `tx.cyclic.*`
+  are engine-owned SocketCAN sends (raw bytes or cantools-packed DBC
+  signals) on that `busId` only. Successful TX is echoed with `dir=tx`
+  onto **that** bus's RX queue. `dbc.load` binds one DBC per busId.
+  Interfaces must already be UP; see [privileges.md](privileges.md).
 
 ## T9 vs later
 
@@ -52,6 +54,7 @@ clear, scroll lock, expandable DBC signals, and a 20_000-frame drop-oldest
 ring. T10 is the M1 exit smoke: one bus, fixture DBC, `rate_ms`, and the N2
 <50 ms first-paint gate (`npm run test:smoke`). Graph is T11 (uPlot + DBC
 signal picker). Transmit T12 is raw one-shot + cyclic TX; T13 fills DBC pack.
+T14 (M3) is concurrent multi-bus + one DBC per bus (`npm run test:multibus`).
 T4–T7 bus/RX/`rate_ms`/DBC unpack stay as they are. The engine does not bring
 interfaces up or set bitrate via
 `CAP_NET_ADMIN`. See [smoke.md](smoke.md) for the Xvfb/headless CI path.

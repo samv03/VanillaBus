@@ -148,6 +148,11 @@ export function TransmitScreen({
         />
         <CyclicJobsTable jobs={model.jobs} onStop={(jobId) => void model.stopJob(jobId)} />
       </div>
+      <p className="tx-multibus-hint muted">
+        Transmit targets the bus in the Raw send dropdown (synced from the
+        header-selected open bus). DBC pack uses <strong>that bus&apos;s</strong>{' '}
+        loaded DBC only — packing on vcan0 never uses vcan1&apos;s database.
+      </p>
       <TransmitFooter stats={model.stats} />
     </div>
   )

@@ -9,6 +9,7 @@ type GraphToolbarProps = {
   readonly onClear: () => void
   readonly onDemoToggle?: () => void
   readonly demoRunning?: boolean
+  readonly activeBusName?: string | null
 }
 
 export function GraphToolbar({
@@ -18,7 +19,8 @@ export function GraphToolbar({
   onPausedChange,
   onClear,
   onDemoToggle,
-  demoRunning
+  demoRunning,
+  activeBusName
 }: GraphToolbarProps): ReactElement {
   return (
     <div className="graph-toolbar">
@@ -58,6 +60,11 @@ export function GraphToolbar({
           </button>
         ) : null}
       </div>
+      <p className="graph-bus-hint muted">
+        {activeBusName
+          ? `Plotting ${activeBusName} (header-selected bus). Frames from other open buses stay in Trace.`
+          : 'Plotting all decoded frames until a bus is connected. Graph follows the header-selected open bus.'}
+      </p>
     </div>
   )
 }

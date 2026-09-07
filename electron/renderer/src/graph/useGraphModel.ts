@@ -12,9 +12,11 @@ export type GraphModel = {
   readonly selected: readonly string[]
   readonly demoRunning: boolean
   readonly hz: number
+  readonly activeBusId: string | null
   setPaused: (next: boolean) => void
   setWindowSec: (next: GraphWindowSec) => void
   toggleSelected: (key: string) => void
+  setActiveBus: (busId: string | null) => void
   applyDbcCatalog: (messages: readonly DbcCatalogMessage[]) => void
   appendBatch: (batch: RxBatch) => void
   clear: () => void
@@ -33,6 +35,7 @@ export function useGraphModel(): GraphModel {
   const [windowSec, setWindowState] = useState<GraphWindowSec>(storeRef.current.windowSec)
   const [selected, setSelected] = useState<readonly string[]>([])
   const [demoRunning, setDemoRunning] = useState(false)
+  const [activeBusId, setActiveBusId] = useState<string | null>(null)
 
   const publish = useCallback((): void => {
     setGeneration((current) => current + 1)
@@ -76,6 +79,18 @@ export function useGraphModel(): GraphModel {
     [publish]
   )
 
+  const setActiveBus = useCallback(
+    (busId: string | null): void => {
+      if (storeRef.current.activeBusId === busId) {
+        return
+      }
+      storeRef.current.setActiveBus(busId)
+      setActiveBusId(storeRef.current.activeBusId)
+      publish()
+    },
+    [publish]
+  )
+
   const applyDbcCatalog = useCallback(
     (messages: readonly DbcCatalogMessage[]): void => {
       storeRef.current.applyDbcCatalog(messages)
@@ -101,6 +116,7 @@ export function useGraphModel(): GraphModel {
     stopDemo()
     pausedRef.current = false
     storeRef.current.reset()
+    setActiveBusId(null)
     publish()
   }, [publish, stopDemo])
 
@@ -108,6 +124,8 @@ export function useGraphModel(): GraphModel {
     if (demoTimerRef.current !== null) {
       return
     }
+    storeRef.current.setActiveBus('demo')
+    setActiveBusId('demo')
     storeRef.current.applyDbcCatalog([
       {
         name: 'EngineStatus',
@@ -159,9 +177,11 @@ export function useGraphModel(): GraphModel {
     selected,
     demoRunning,
     hz: GRAPH_DEFAULT_HZ,
+    activeBusId,
     setPaused,
     setWindowSec,
     toggleSelected,
+    setActiveBus,
     applyDbcCatalog,
     appendBatch,
     clear,

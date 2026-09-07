@@ -19,6 +19,9 @@ export function frameMatchesFilter(frame: FrameEvent, query: string): boolean {
   if (name !== undefined && name.toLowerCase().includes(needle)) {
     return true
   }
+  if (frame.ifName.toLowerCase().includes(needle)) {
+    return true
+  }
   return false
 }
 

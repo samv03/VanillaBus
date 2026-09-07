@@ -6,7 +6,8 @@ DBC pack/unpack, TX on A is invisible to B, close(A) leaves B alive, and
 duplicate iface open is rejected.
 
 If vcan0 *and* vcan1 are UP, a live IPC path opens both, loads sample.dbc
-on A and mux.dbc on B, TX-isolates the pair, and checks per-bus decode.
+on A and mux.dbc on B, starts vcan peers *before* tx.send (vcan does not
+queue for late listeners), TX-isolates the pair, and checks per-bus decode.
 Otherwise:
 
     SKIP vcan0+vcan1 multi-bus: vcan0 and/or vcan1 is not UP on this host.
@@ -22,6 +23,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -363,46 +365,146 @@ def _collect_rx(sock: socket.socket, timeout: float) -> list[dict]:
     return frames
 
 
-def _peer_recv(channel: str, can_id: int, timeout: float) -> list[tuple[int, bytes]]:
+def _parse_candump_id(line: str, can_id: int) -> tuple[int, bytes] | None:
+    parts = line.split()
+    if len(parts) < 3:
+        return None
     try:
-        import can
-    except ImportError:
-        can = None
-    if can is not None:
-        bus = can.Bus(interface="socketcan", channel=channel)
+        ident = int(parts[1], 16)
+    except ValueError:
+        return None
+    if ident != can_id:
+        return None
+    hex_bytes = [p for p in parts[3:] if all(ch in "0123456789abcdefABCDEF" for ch in p)]
+    return (ident, bytes.fromhex("".join(hex_bytes)))
+
+
+class _PeerListen:
+    """SocketCAN / candump listener that must be started *before* TX.
+
+    vcan does not queue for late sockets. Opening the peer after tx.send
+    misses the frame even when the engine sent it on the right iface.
+    """
+
+    def __init__(self, channel: str, can_id: int, timeout: float) -> None:
+        self.channel = channel
+        self.can_id = can_id
+        self.timeout = timeout
+        self.found: list[tuple[int, bytes]] = []
+        self._ready = threading.Event()
+        self._error: BaseException | None = None
+        self._thread = threading.Thread(
+            target=self._run,
+            name=f"peer-listen-{channel}",
+            daemon=True,
+        )
+        self._thread.start()
+
+    def wait_ready(self, timeout: float = 2.0) -> None:
+        if not self._ready.wait(timeout):
+            raise TimeoutError(f"peer listen on {self.channel} did not become ready")
+        if self._error is not None:
+            raise self._error
+
+    def result(self) -> list[tuple[int, bytes]]:
+        self._thread.join(timeout=self.timeout + 1.5)
+        if self._error is not None:
+            raise self._error
+        return self.found
+
+    def _run(self) -> None:
         try:
-            found: list[tuple[int, bytes]] = []
-            deadline = time.time() + timeout
-            while time.time() < deadline:
-                msg = bus.recv(timeout=max(0.01, deadline - time.time()))
-                if msg is None:
-                    continue
-                if int(msg.arbitration_id) != can_id:
-                    continue
-                found.append((int(msg.arbitration_id), bytes(msg.data)))
-            return found
-        finally:
-            bus.shutdown()
-    candump = subprocess.run(
-        ["candump", "-n", "4", "-T", str(int(timeout * 1000)), channel],
-        check=False,
-        capture_output=True,
-        text=True,
+            try:
+                import can
+            except ImportError:
+                can = None
+            if can is not None:
+                bus = can.Bus(interface="socketcan", channel=self.channel)
+                try:
+                    self._ready.set()
+                    deadline = time.time() + self.timeout
+                    while time.time() < deadline:
+                        msg = bus.recv(timeout=max(0.01, deadline - time.time()))
+                        if msg is None:
+                            continue
+                        if int(msg.arbitration_id) != self.can_id:
+                            continue
+                        self.found.append((int(msg.arbitration_id), bytes(msg.data)))
+                finally:
+                    bus.shutdown()
+                return
+            proc = subprocess.Popen(
+                [
+                    "candump",
+                    "-n",
+                    "8",
+                    "-T",
+                    str(int(self.timeout * 1000)),
+                    self.channel,
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            self._ready.set()
+            stdout, _stderr = proc.communicate(timeout=self.timeout + 1.5)
+            for line in (stdout or "").splitlines():
+                parsed = _parse_candump_id(line, self.can_id)
+                if parsed is not None:
+                    self.found.append(parsed)
+        except BaseException as exc:
+            self._error = exc
+            self._ready.set()
+
+
+def _peer_listen(channel: str, can_id: int, timeout: float) -> _PeerListen:
+    """Open a peer on `channel` immediately; join after TX with `.result()`."""
+    return _PeerListen(channel, can_id, timeout)
+
+
+def _frames_from_rx_batch(message: dict) -> list[dict]:
+    if message.get("type") != "rx.batch":
+        return []
+    frames = message.get("payload", {}).get("frames")
+    return list(frames) if isinstance(frames, list) else []
+
+
+def _wait_tx_ack(sock: socket.socket, echo: list[dict], timeout: float = 3.0) -> dict:
+    deadline = time.time() + timeout
+    while True:
+        remaining = deadline - time.time()
+        if remaining <= 0:
+            raise TimeoutError("timed out waiting for tx.send ack")
+        message = _recv_skip_heartbeat(sock, timeout=remaining)
+        echo.extend(_frames_from_rx_batch(message))
+        if message.get("type") in {"tx.send", "engine.error"}:
+            return message
+
+
+def _live_tx_watch_peers(
+    sock: socket.socket,
+    bus_a: str,
+    echo: list[dict],
+    *,
+    attempt: str,
+) -> tuple[list[tuple[int, bytes]], list[tuple[int, bytes]]]:
+    """TX on A while both vcan peers are already listening (no late-open race)."""
+    listen_a = _peer_listen("vcan0", TX_ID, 1.0)
+    listen_b = _peer_listen("vcan1", TX_ID, 1.0)
+    listen_a.wait_ready()
+    listen_b.wait_ready()
+    _send_message(
+        sock,
+        {
+            "type": "tx.send",
+            "id": attempt,
+            "payload": {"busId": bus_a, "can_id": TX_ID, "data": TX_DATA.hex(), "is_eff": False},
+        },
     )
-    found = []
-    for line in candump.stdout.splitlines():
-        parts = line.split()
-        if len(parts) < 3:
-            continue
-        try:
-            ident = int(parts[1], 16)
-        except ValueError:
-            continue
-        if ident != can_id:
-            continue
-        hex_bytes = [p for p in parts[3:] if all(ch in "0123456789abcdefABCDEF" for ch in p)]
-        found.append((ident, bytes.fromhex("".join(hex_bytes))))
-    return found
+    ack = _wait_tx_ack(sock, echo)
+    if ack.get("type") != "tx.send":
+        raise AssertionError(f"tx.send failed: {ack!r}")
+    return listen_a.result(), listen_b.result()
 
 
 def _inject(channel: str, can_id: int, data: bytes) -> None:
@@ -477,27 +579,17 @@ def test_live_vcan_pair() -> None:
             raise AssertionError(f"dbc.load B failed: {loaded_b!r}")
 
         _collect_rx(sock, 0.15)
-        _send_message(
-            sock,
-            {
-                "type": "tx.send",
-                "id": "tx-a",
-                "payload": {"busId": bus_a, "can_id": TX_ID, "data": TX_DATA.hex(), "is_eff": False},
-            },
-        )
-        ack = _recv_skip_until(sock, {"tx.send", "engine.error", "rx.batch"})
-        if ack.get("type") == "rx.batch":
-            ack = _recv_skip_until(sock, {"tx.send", "engine.error"})
-        if ack.get("type") != "tx.send":
-            raise AssertionError(f"tx.send failed: {ack!r}")
-
-        seen_a = _peer_recv("vcan0", TX_ID, 0.6)
-        seen_b = _peer_recv("vcan1", TX_ID, 0.25)
+        echo: list[dict] = []
+        seen_a, seen_b = _live_tx_watch_peers(sock, bus_a, echo, attempt="tx-a")
+        if not seen_a:
+            seen_a, seen_b = _live_tx_watch_peers(sock, bus_a, echo, attempt="tx-a-retry")
         assert seen_a, "peer on vcan0 must see TX from bus A"
         assert not seen_b, f"isolation broken: vcan1 peer saw TX {seen_b!r}"
 
-        echo = _collect_rx(sock, 0.4)
         tx_echo = [f for f in echo if f.get("dir") == "tx" and f.get("can_id") == TX_ID]
+        if not tx_echo:
+            echo.extend(_collect_rx(sock, 0.4))
+            tx_echo = [f for f in echo if f.get("dir") == "tx" and f.get("can_id") == TX_ID]
         assert tx_echo and all(f["busId"] == bus_a for f in tx_echo)
         assert all(f["ifName"] == "vcan0" for f in tx_echo)
 

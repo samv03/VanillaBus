@@ -4,6 +4,8 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 ok=0
 warn=0
 
@@ -105,9 +107,18 @@ if [[ -f /etc/modprobe.d/kvaser.conf ]] && grep -q '^[[:space:]]*blacklist[[:spa
   warn=1
 fi
 
+if have node && [[ -f "$SCRIPT_DIR/check-electron-pin.sh" ]]; then
+  echo
+  if ! bash "$SCRIPT_DIR/check-electron-pin.sh"; then
+    echo "  warning: Electron pin mismatch — see docs/packaging.md (do not npm audit fix --force)"
+    ok=1
+  fi
+fi
+
 echo
 if [[ "$ok" -ne 0 ]]; then
-  echo "Host is missing required Node/Python tools."
+  echo "Host is missing required Node/Python tools or the Electron pin does not match."
+  echo "See docs/packaging.md — do not run npm audit fix --force."
   exit 1
 fi
 

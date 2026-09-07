@@ -34,6 +34,7 @@
     "test:multibus": "python3 scripts/test-multibus.py && tsx --test scripts/test-multibus.ts",
     "test:smoke": "tsx --test scripts/test-smoke.ts",
     "test:smoke:electron": "bash scripts/smoke-electron.sh",
+    "test:electron-pin": "bash scripts/check-electron-pin.sh",
     "test:m1": "npm run test:smoke && npm run test:smoke:electron",
     "test:harden": "python3 scripts/test-harden.py && tsx --test scripts/test-harden.ts",
     "test:persist": "tsx --test scripts/test-persist.ts"
@@ -49,7 +50,7 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
-    "electron": "^37.3.1",
+    "electron": "37.10.3",
     "electron-vite": "^5.0.0",
     "tsx": "^4.20.5",
     "typescript": "^5.8.3",

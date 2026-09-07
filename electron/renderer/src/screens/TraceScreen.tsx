@@ -42,7 +42,8 @@ export function TraceScreen({ model }: TraceScreenProps): ReactElement {
         onToggle={model.toggleExpanded}
       />
       <p className="trace-footnote muted">
-        Virtualized Trace — only visible rows render. Ring drops oldest at{' '}
+        Virtualized Trace — only visible rows render. The Bus column is the
+        SocketCAN ifName for that frame&apos;s busId. Ring drops oldest at{' '}
         {TRACE_RING_CAPACITY.toLocaleString()} frames. Expand a named row for DBC
         signals (name / value / unit).
       </p>

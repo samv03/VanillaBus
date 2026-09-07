@@ -33,8 +33,8 @@ T3+ maps status and bus commands onto `window.vanillabus` (see
 | `engine.heartbeat` | engine event, ~2s | `{ "ts_us": <int microseconds> }` |
 | `engine.error` | engine event / failed request | `{ "code": "<str>", "message": "<str>" }` |
 | `bus.list` | request/response | `{ "interfaces": [{ "name", "kind", "state": "up"\|"down" }] }` |
-| `bus.open` | request `{ "name", "bitrate"? }` → `{ "busId" }` | Bind only if the iface exists and is UP. `bitrate` optional; ignored for vcan. Missing/down → `engine.error` (`iface_not_found` / `iface_down`). Never `ip link set up`. |
-| `bus.close` | request `{ "busId" }` → `{ "ok": true }` | Reopen after close is allowed (new `busId`). |
+| `bus.open` | request `{ "name", "bitrate"? }` → `{ "busId" }` | Bind only if the iface exists and is UP. Several buses may be open at once (one handle per iface). `bitrate` optional; ignored for vcan. Missing/down/already-open → `engine.error` (`iface_not_found` / `iface_down` / `iface_already_open`). Never `ip link set up`. |
+| `bus.close` | request `{ "busId" }` → `{ "ok": true }` | Tears down only that `busId` (RX pump, DBC, rate keys, cyclic jobs). Other open buses stay up. Reopen after close is allowed (new `busId`). |
 | `rx.batch` | engine event | `{ "frames": [FrameEvent, …], "dropped": <int> }` — after `bus.open`, ≤16 ms or ≤500 frames. `rate_ms` is last inter-arrival ms, or `null` on the first sample per `(busId, can_id, is_eff)`. Known IDs may include `decode: { name, signals }` when a DBC is bound. |
 | `dbc.load` | request `{ "busId", "path" }` → `{ "ok": true, "message_count", "catalog"? }` | One DBC per open busId, loaded with cantools. Optional `catalog` lists message/signal names for the Graph picker. Path must resolve under the project/fixtures allowlist. Failures: `engine.error` (`path_not_allowed`, `dbc_not_found`, `dbc_invalid`, `bus_not_found`). |
 | `dbc.clear` | request `{ "busId" }` → `{ "ok": true }` | Unload the DBC for that bus. Idempotent if none is loaded. |

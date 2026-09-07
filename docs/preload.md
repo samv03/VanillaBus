@@ -93,10 +93,13 @@ the child PID, and asserts a `disconnected` then `connected` transition.
 
 ## List / open / close
 
-1. Bring up an iface: `sudo ./scripts/setup-vcan.sh`
-2. The header bus dropdown lists `vcan0` after hello (`bus.list`).
-3. **Connect** returns a `busId`. **Disconnect** then **Connect** again works.
-4. Connect a missing name (e.g. type `vb_missing0`) — status shows `iface_not_found`.
+1. Bring up ifaces: `sudo ./scripts/setup-vcan.sh` (`vcan0` and `vcan1`).
+2. The header bus dropdown lists `vcan0` / `vcan1` after hello (`bus.list`).
+3. **Connect** returns a `busId`. Select another iface and Connect again to
+   keep both open. Open-bus chips switch the active bus for DBC Load.
+4. **Disconnect** closes only the active bus. A second `bus.open` of an
+   already-open iface returns `iface_already_open`.
+5. Connect a missing name (e.g. type `vb_missing0`) — status shows `iface_not_found`.
 
 Automated: `npm run test:bus` and `npm run test:bus-bridge`.
 
@@ -156,3 +159,17 @@ Automated: `npm run test:tx` (T12 raw + cyclic), `npm run test:tx-dbc`
 
 Automated: `npm run test:graph` (synthetic decimation / pause / window;
 live SKIP if vcan0 is not UP).
+
+## Multi-bus (T14)
+
+1. `sudo ./scripts/setup-vcan.sh` then Connect `vcan0` **and** `vcan1`.
+2. Select each open-bus chip (or the dropdown) and **Load** a different DBC
+   (`sample.dbc` on A, `mux.dbc` on B).
+3. Trace lists both ifaces in the Bus column. Graph plots only the
+   header-selected bus. Transmit Raw send / DBC pack target that bus's
+   `busId` and DBC.
+4. `cansend vcan0 …` must not appear as RX on `vcan1` (no can-gw).
+   Disconnect on A leaves B's jobs, DBC, and RX thread running.
+
+Automated: `npm run test:multibus` (synthetic always; live SKIP unless
+both vcan0 and vcan1 are UP).

@@ -11,7 +11,11 @@ signals, and a bounded 20_000-frame drop-oldest ring. Graph is a live
 Pause, UI-side 10–30 Hz decimation, and a memory-bounded sample window.
 Transmit T12 is **raw one-shot + cyclic TX** (amber Send / client-side Tx
 footer). T13 fills the DBC pack column: pick a catalog message, edit
-signals, Send / Start cyclic — cantools encodes in the engine.
+signals, Send / Start cyclic — cantools encodes in the engine. T14
+(**M3**) opens **two or more buses at once** (`vcan0` + `vcan1`), each
+with its own DBC, RX thread, rate tracker, and TX jobs. Closing one bus
+does not tear down the other. TX on A never appears as RX on B unless
+you add a kernel `can-gw` bridge.
 
 After `bus.open`, `vanillabus-engine` recv()s on that python-can bus and
 emits `rx.batch` (≤16 ms or ≤500 frames). T6 fills `rate_ms` as the last
@@ -65,7 +69,7 @@ The engine **binds only**. It will not `ip link set up`, set a kernel bitrate,
 or run as root. Bring the iface up first:
 
 ```bash
-sudo ./scripts/setup-vcan.sh          # creates vcan0 and sets it UP
+sudo ./scripts/setup-vcan.sh          # creates vcan0 + vcan1 and sets them UP
 ```
 
 Opening a missing or down iface returns structured `engine.error`
@@ -87,8 +91,11 @@ npm run dev
 spawns `python3 -m can_engine --ipc <socket>`. After `engine.hello` the shared
 header shows **Engine Connected**. The same header is on Trace, Graph, and
 Transmit. Use the bus dropdown + **Connect** to call `bus.list` / `bus.open`.
-**Load** (header DBC path) calls `dbc.load`. Inject frames on the open iface
-and they appear in the virtualized Trace table. The **Graph** tab plots
+Connect a second iface the same way (select `vcan1`, Connect). Open-bus
+chips switch the **active** bus for DBC Load and the Graph target.
+**Load** (header DBC path) calls `dbc.load` on the active `busId` only.
+Inject frames on either open iface and they appear in the virtualized
+Trace table (Bus column = ifName). The **Graph** tab plots
 numeric `decode.signals` in uPlot (10s/30s/60s window, Pause is independent
 of Trace). In `npm run dev`, Graph has a Demo button for synthetic series.
 
@@ -121,6 +128,7 @@ npm run test:tx                       # T12 raw TX + cyclic ±10% (SKIP live if 
 npm run test:tx-dbc                   # T13 golden pack + cyclic DBC ±10% (SKIP live if no vcan)
 # or: python3 scripts/test-tx-dbc.py
 npm run test:tx-bridge                # T12/T13 hex/period helpers + supervisor TX (tsx)
+npm run test:multibus                 # T14 two buses + DBC isolation (python + tsx)
 npm run test:smoke                    # T10 M1 Trace+DBC+rate + N2 (tsx)
 # or: npm run test:m1                 # test:smoke + Electron/Xvfb stub
 ```
@@ -193,6 +201,47 @@ Bring it up with: sudo ./scripts/setup-vcan.sh
 
 Creating vcan in CI needs `sudo` / `CAP_NET_ADMIN`. This repo does not sudo
 from the test.
+
+## Multi-bus (T14 / M3)
+
+`BusManager` keeps one python-can handle, RX pump, DBC, rate keys, and
+cyclic TX jobs per `busId`. The header can have several ifaces open;
+the selected chip/dropdown is the DBC + Graph + default TX target.
+
+```bash
+sudo ./scripts/setup-vcan.sh          # vcan0 and vcan1 UP
+npm run test:multibus
+```
+
+What `test:multibus` does:
+
+1. **Synthetic (always).** Two RecordingBuses: load `sample.dbc` on A and
+   `mux.dbc` on B; TX on A is not sent or echoed on B; `bus.close(A)`
+   leaves B's pump/DBC/jobs running; a second `bus.open vcan0` returns
+   `iface_already_open`; `drain_rx` is fair so a hot bus cannot hide B.
+   Trace/Graph unit checks (`scripts/test-multibus.ts`) keep the ring
+   keyed by `busId`/`ifName` and plot only the selected bus.
+2. **Live vcan (optional).** If **both** `vcan0` and `vcan1` are UP:
+   engine IPC opens both, loads different DBCs, `tx.send`s on A, a peer
+   on A sees the frame and a peer on B does **not**, RX decode uses the
+   per-bus DBC, and closing A does not stop B.
+3. **SKIP if either iface is missing.** Live steps print a clear message
+   and still exit 0:
+
+```text
+SKIP vcan0+vcan1 multi-bus: vcan0 and/or vcan1 is not UP on this host. Bring both up with: sudo ./scripts/setup-vcan.sh
+```
+
+### Graph / Transmit targeting
+
+- **Trace** shows every open bus. The Bus column is `ifName`. Filter
+  `vcan0` / `vcan1` to isolate a column.
+- **Graph** plots decoded signals from the **header-selected open bus
+  only**. Switching the active bus swaps that bus's DBC catalog and
+  drops the previous bus's samples. Other buses stay in Trace.
+- **Transmit** Raw send dropdown lists open buses (synced from the
+  header). DBC pack encodes with **that bus's** loaded DBC. Cyclic jobs
+  are tagged with `busId`; `Disconnect` on A stops only A's jobs.
 
 ## M1 smoke
 
@@ -293,7 +342,7 @@ pack). Both Raw and DBC cyclic jobs appear in the Active jobs list.
 
 ```bash
 ./scripts/check-host.sh
-sudo ./scripts/setup-vcan.sh          # vcan0 UP for bus.open + RX
+sudo ./scripts/setup-vcan.sh          # vcan0 + vcan1 UP for bus.open + multi-bus
 ```
 
 ## Layout
@@ -309,7 +358,7 @@ shared/engine.ts        # renderer/host types
 shared/appTabs.ts       # typed re-export of Trace | Graph | Transmit helpers
 shared/appTabs.mjs      # same helpers for plain `node` (no tsx / --test)
 shared/ipc-schema.json  # locked IPC types
-scripts/                # check-host, setup-vcan, hello + bus + rx + dbc + M1 smoke
+scripts/                # check-host, setup-vcan, hello + bus + rx + dbc + M1 + T14 multi-bus
 fixtures/dbc/           # sample + mux + invalid DBC (engine-side only)
 fixtures/golden/        # unpack + pack vectors for sample + mux
 docs/architecture.md

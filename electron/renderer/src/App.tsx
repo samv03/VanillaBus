@@ -7,6 +7,7 @@ import { TraceScreen } from './screens/TraceScreen'
 import { TransmitScreen } from './screens/TransmitScreen'
 import { AppShell } from './shell/AppShell'
 import { SharedHeader } from './shell/SharedHeader'
+import { remainingSelectedBus } from '../../../shared/multiBus'
 import { type BusActionStatus, type OpenedBus } from './shell/types'
 import { useTraceModel } from './trace/useTraceModel'
 import { useTransmitModel } from './transmit/useTransmitModel'
@@ -157,10 +158,31 @@ export function App(): ReactElement {
       setBusStatus({ kind: 'error', error: result.error })
       return
     }
+    const nextSelected = remainingSelectedBus(opened, busId, selectedBus)
     setOpened((previous) => previous.filter((item) => item.busId !== busId))
+    setSelectedBus(nextSelected)
     transmit.markBusClosed(busId)
     setBusStatus({ kind: 'ok', text: `Closed ${busId}` })
   }
+
+  function selectHeaderBus(name: string): void {
+    setSelectedBus(name)
+    const open = opened.find((item) => item.name === name)
+    if (open?.dbc) {
+      setDbcPath(open.dbc.path)
+    }
+  }
+
+  useEffect(() => {
+    if (graph.demoRunning) {
+      return
+    }
+    const open = opened.find((item) => item.name === selectedBus)
+    graph.setActiveBus(open?.busId ?? null)
+    if (open?.dbc) {
+      graph.applyDbcCatalog(open.dbc.catalog)
+    }
+  }, [graph.applyDbcCatalog, graph.demoRunning, graph.setActiveBus, opened, selectedBus])
 
   function selectTab(next: AppTab): void {
     if (parseAppTab(window.location.hash) !== next) {
@@ -210,8 +232,9 @@ export function App(): ReactElement {
         <SharedHeader
           engineConnected={connected}
           interfaces={interfaces}
+          opened={opened}
           selectedBus={selectedBus}
-          onSelectBus={setSelectedBus}
+          onSelectBus={selectHeaderBus}
           busConnected={busConnected}
           onConnect={() => void headerConnect()}
           onDisconnect={() => void headerDisconnect()}
@@ -226,7 +249,9 @@ export function App(): ReactElement {
       }
     >
       {tab === 'trace' ? <TraceScreen model={trace} /> : null}
-      {tab === 'graph' ? <GraphScreen model={graph} /> : null}
+      {tab === 'graph' ? (
+        <GraphScreen model={graph} activeBusName={selectedOpen?.name ?? null} />
+      ) : null}
       {tab === 'transmit' ? (
         <TransmitScreen
           model={transmit}

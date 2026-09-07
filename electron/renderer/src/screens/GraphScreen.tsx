@@ -8,9 +8,10 @@ import type { GraphModel } from '../graph/useGraphModel'
 
 type GraphScreenProps = {
   readonly model: GraphModel
+  readonly activeBusName: string | null
 }
 
-export function GraphScreen({ model }: GraphScreenProps): ReactElement {
+export function GraphScreen({ model, activeBusName }: GraphScreenProps): ReactElement {
   const rows = useMemo(
     () => model.store.legendRows(),
     [model.store, model.generation, model.selected]
@@ -31,6 +32,7 @@ export function GraphScreen({ model }: GraphScreenProps): ReactElement {
           paused={model.paused}
           onPausedChange={model.setPaused}
           onClear={model.clear}
+          activeBusName={model.demoRunning ? 'demo' : activeBusName}
           onDemoToggle={
             import.meta.env.DEV
               ? () => {

@@ -20,6 +20,8 @@ export class EngineRequestError extends Error {
   }
 }
 
+export const MAX_PENDING_REQUESTS = 128
+
 type PendingRequest = {
   readonly type: string
   readonly resolve: (payload: Record<string, unknown>) => void
@@ -119,6 +121,11 @@ export class EngineClient {
   ): Promise<Record<string, unknown>> {
     if (!this.socket || this.socket.destroyed || this.closed) {
       return Promise.reject(new EngineRequestError('engine_disconnected', 'engine is not connected'))
+    }
+    if (this.pending.size >= MAX_PENDING_REQUESTS) {
+      return Promise.reject(
+        new EngineRequestError('backpressure', 'too many in-flight engine requests')
+      )
     }
     const id = `req-${++this.requestSeq}-${Date.now()}`
     return new Promise((resolve, reject) => {

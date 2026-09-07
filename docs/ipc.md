@@ -11,6 +11,9 @@ T3+ maps status and bus commands onto `window.vanillabus` (see
 - Length is the JSON byte count only (not including the header).
 - Maximum payload: **1 MiB**. Length `0` or `> 1 MiB` is rejected; the engine
   sends `engine.error` and closes that connection. The process stays up.
+- After the first byte of a frame, a truncated header or payload times out
+  in **2 s** (`invalid_length`) instead of hanging the session. Idle clients
+  waiting for the next request are not timed out.
 - Socket path is chosen by main:
   - `$XDG_RUNTIME_DIR/vanillabus/engine-<pid>.sock` when that directory is usable
   - otherwise a **0700** directory from `mkdtemp` (never a world-writable
@@ -35,7 +38,7 @@ T3+ maps status and bus commands onto `window.vanillabus` (see
 | `bus.list` | request/response | `{ "interfaces": [{ "name", "kind", "state", "driver"?, "vendor"?, "module"?, "blacklist"?, "blacklist_reason"? }], "warnings"? }` — `name`/`kind`/`state` stay required. Optional T15 vendor metadata and host-level Peak/Kvaser SDK blacklist warnings. |
 | `bus.open` | request `{ "name", "bitrate"? }` → `{ "busId" }` | Bind only if the iface exists and is UP. Several buses may be open at once (one handle per iface). `bitrate` optional; ignored for vcan. Missing/down/already-open → `engine.error` (`iface_not_found` / `iface_down` / `iface_already_open`). Never `ip link set up`. |
 | `bus.close` | request `{ "busId" }` → `{ "ok": true }` | Tears down only that `busId` (RX pump, DBC, rate keys, cyclic jobs). Other open buses stay up. Reopen after close is allowed (new `busId`). |
-| `rx.batch` | engine event | `{ "frames": [FrameEvent, …], "dropped": <int> }` — after `bus.open`, ≤16 ms or ≤500 frames. `rate_ms` is last inter-arrival ms, or `null` on the first sample per `(busId, can_id, is_eff)`. Known IDs may include `decode: { name, signals }` when a DBC is bound. |
+| `rx.batch` | engine event | `{ "frames": [FrameEvent, …], "dropped": <int> }` — after `bus.open`, ≤16–33 ms or ≤500 frames (whichever first). `dropped` is the cumulative engine RX drop-oldest count (queue cap 4096/bus). `rate_ms` is last inter-arrival ms, or `null` on the first sample per `(busId, can_id, is_eff)`. Known IDs may include `decode: { name, signals }` when a DBC is bound. |
 | `dbc.load` | request `{ "busId", "path" }` → `{ "ok": true, "message_count", "catalog"? }` | One DBC per open busId, loaded with cantools. Optional `catalog` lists message/signal names for the Graph picker. Path must resolve under the project/fixtures allowlist. Failures: `engine.error` (`path_not_allowed`, `dbc_not_found`, `dbc_invalid`, `bus_not_found`). |
 | `dbc.clear` | request `{ "busId" }` → `{ "ok": true }` | Unload the DBC for that bus. Idempotent if none is loaded. |
 | `tx.send` | request raw `{ "busId", "can_id", "data", … }` **or** DBC `{ "busId", "message", "signals" }` → `{ "ok": true }` | One-shot TX on an open bus. Hex `data` may include spaces. DBC pack uses the cantools database already loaded for `busId` (no parse in the renderer). Failures: `engine.error` (`bus_not_found`, `invalid_payload`, `tx_failed`, `dbc_not_loaded`, `unknown_message`, `pack_failed`). Echoes a FrameEvent with `dir=tx` onto `rx.batch` so Trace can show TX (SocketCAN recv-own-msgs stays off). |

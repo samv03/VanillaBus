@@ -1,4 +1,8 @@
-/** 4-byte big-endian length + UTF-8 JSON (same as engine/can_engine/framing.py). */
+/**
+ * 4-byte big-endian length + UTF-8 JSON (same as engine/can_engine/framing.py).
+ * Partial frames stay buffered until complete. Length 0 or > 1 MiB is rejected
+ * without waiting for a payload. The decoder never grows past 4 + 1 MiB.
+ */
 
 export const MAX_FRAME_BYTES = 1_048_576
 

@@ -115,3 +115,45 @@ test(
     }
   }
 )
+
+test(
+  'killing the engine under IPC load reconnects without hanging requests',
+  { timeout: 25_000 },
+  async (t) => {
+    if (process.platform !== 'linux') {
+      t.skip('engine supervisor is Linux-only')
+      return
+    }
+
+    const supervisor = new EngineSupervisor()
+    supervisor.start()
+    try {
+      await waitFor(supervisor, true, 10_000)
+
+      const inflight: Promise<string>[] = []
+      const load = setInterval(() => {
+        inflight.push(supervisor.listBuses().then(() => 'ok', () => 'err'))
+      }, 8)
+
+      await new Promise((resolve) => setTimeout(resolve, 40))
+      const pid = supervisor.getEnginePid()
+      assert.ok(pid, 'expected a live engine PID')
+      process.kill(pid, 'SIGKILL')
+
+      await waitFor(supervisor, false, 5_000)
+      const up = await waitFor(supervisor, true, 10_000)
+      clearInterval(load)
+      assert.equal(up.hello?.name, 'vanillabus-engine')
+
+      const settled = await Promise.all(inflight)
+      assert.ok(
+        settled.every((item) => item === 'ok' || item === 'err'),
+        'in-flight requests must settle (no deadlock)'
+      )
+      const listed = await supervisor.listBuses()
+      assert.ok(Array.isArray(listed.interfaces))
+    } finally {
+      supervisor.stop()
+    }
+  }
+)

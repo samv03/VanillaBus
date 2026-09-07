@@ -11,6 +11,8 @@ import { computeSeriesStats, type GraphLegendStats } from './graphStats'
 import {
   GRAPH_DEFAULT_HZ,
   GRAPH_DEFAULT_WINDOW_SEC,
+  GRAPH_CATALOG_MAX,
+  GRAPH_SERIES_MAX,
   clampGraphHz,
   graphSampleIntervalUs,
   maxSamplesForWindow,
@@ -53,13 +55,16 @@ class SeriesBuffer {
     this.binStartUs = tsUs
   }
 
-  trim(startUs: number): void {
+  trim(startUs: number, maxSamples?: number): void {
     let index = 0
     while (index < this.samples.length && this.samples[index]!.ts_us < startUs) {
       index += 1
     }
     if (index > 0) {
       this.samples = this.samples.slice(index)
+    }
+    if (typeof maxSamples === 'number' && this.samples.length > maxSamples) {
+      this.samples = this.samples.slice(this.samples.length - maxSamples)
     }
     if (this.samples.length === 0) {
       this.binStartUs = null
@@ -315,6 +320,12 @@ export class GraphStore {
       return
     }
     for (const entry of catalogEntriesFromDecode(frame.can_id, decode)) {
+      if (!this.catalog.has(entry.key) && this.catalog.size >= GRAPH_CATALOG_MAX) {
+        this.evictIdleCatalog()
+      }
+      if (!this.catalog.has(entry.key) && this.catalog.size >= GRAPH_CATALOG_MAX) {
+        continue
+      }
       this.catalog.set(entry.key, mergeCatalogEntry(this.catalog.get(entry.key), entry))
     }
     const intervalUs = graphSampleIntervalUs(this.hz)
@@ -322,6 +333,12 @@ export class GraphStore {
       const key = graphSignalKey(decode.name, signalName)
       let buffer = this.series.get(key)
       if (!buffer) {
+        if (this.series.size >= GRAPH_SERIES_MAX) {
+          this.evictIdleSeries()
+        }
+        if (this.series.size >= GRAPH_SERIES_MAX) {
+          continue
+        }
         buffer = new SeriesBuffer()
         this.series.set(key, buffer)
       }
@@ -329,10 +346,39 @@ export class GraphStore {
     }
   }
 
+  seriesCount(): number {
+    return this.series.size
+  }
+
+  private evictIdleSeries(): void {
+    for (const key of this.series.keys()) {
+      if (!this.selected.includes(key)) {
+        this.series.delete(key)
+        return
+      }
+    }
+  }
+
+  private evictIdleCatalog(): void {
+    for (const [key, entry] of this.catalog) {
+      if (!this.selected.includes(key) && !entry.seen) {
+        this.catalog.delete(key)
+        return
+      }
+    }
+    for (const key of this.catalog.keys()) {
+      if (!this.selected.includes(key)) {
+        this.catalog.delete(key)
+        return
+      }
+    }
+  }
+
   private trimAll(): void {
     const start = windowStartUs(this.plotNowUs(), this.windowSec)
+    const bound = this.capacityBound()
     for (const buffer of this.series.values()) {
-      buffer.trim(start)
+      buffer.trim(start, bound)
     }
   }
 

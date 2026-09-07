@@ -1,15 +1,16 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { delimiter, join } from 'node:path'
-import type {
-  BusCloseOk,
-  BusInterface,
-  BusListOk,
-  BusOpenOk,
-  DbcClearOk,
-  DbcLoadOk,
-  EngineHello,
-  EngineStatus,
-  RxBatch
+import {
+  parseDbcCatalog,
+  type BusCloseOk,
+  type BusInterface,
+  type BusListOk,
+  type BusOpenOk,
+  type DbcClearOk,
+  type DbcLoadOk,
+  type EngineHello,
+  type EngineStatus,
+  type RxBatch
 } from '../../shared/engine'
 import { EngineClient, EngineRequestError } from './engineClient'
 import { createIpcSocketPath } from './ipcPath'
@@ -92,7 +93,7 @@ export class EngineSupervisor {
     if (typeof result.message_count !== 'number' || !Number.isInteger(result.message_count)) {
       throw new EngineRequestError('invalid_payload', 'dbc.load response missing message_count')
     }
-    return { ok: true, message_count: result.message_count }
+    return { ok: true, message_count: result.message_count, catalog: parseDbcCatalog(result.catalog) }
   }
 
   async clearDbc(busId: string): Promise<DbcClearOk> {

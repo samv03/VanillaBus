@@ -296,7 +296,32 @@
               "required": ["ok", "message_count"],
               "properties": {
                 "ok": { "type": "boolean" },
-                "message_count": { "type": "integer", "minimum": 0 }
+                "message_count": { "type": "integer", "minimum": 0 },
+                "catalog": {
+                  "type": "array",
+                  "description": "Optional DBC message/signal list for the Graph picker. Mux rules stay in the engine unpacker.",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["name", "can_id", "signals"],
+                    "properties": {
+                      "name": { "type": "string" },
+                      "can_id": { "type": "integer", "minimum": 0 },
+                      "signals": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["name"],
+                          "properties": {
+                            "name": { "type": "string" },
+                            "unit": { "type": "string" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
               }
             }
           }

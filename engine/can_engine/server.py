@@ -117,7 +117,7 @@ async def handle_request(message: dict, manager: BusManager, send) -> None:
             return
         if msg_type == "dbc.load":
             loaded = manager.load_dbc(payload.get("busId"), payload.get("path"))
-            await send(dbc_load_message(loaded["message_count"], msg_id))
+            await send(dbc_load_message(loaded["message_count"], msg_id, loaded.get("catalog")))
             return
         if msg_type == "dbc.clear":
             manager.clear_dbc(payload.get("busId"))

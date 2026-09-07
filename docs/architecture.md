@@ -7,7 +7,7 @@ VanillaBus is a SocketCAN-first desktop bus monitor.
 │ Electron desktop (npm run dev)              │
 │  main  → window + engine spawn / restart    │
 │  preload → window.vanillabus (typed)        │
-│  renderer → shell + virtualized Trace       │
+│  renderer → shell + Trace + uPlot Graph     │
 └──────────────────┬──────────────────────────┘
                    │ UDS: 4-byte BE length + JSON
                    │ (see docs/ipc.md)
@@ -23,7 +23,9 @@ VanillaBus is a SocketCAN-first desktop bus monitor.
   Transmit) and one shared bus/DBC header. Tab state is the URL hash
   (`#trace`, `#graph`, `#transmit`). Switching tabs does not respawn the
   engine. Trace is a virtualized table (react-virtuoso) over a 20_000-frame
-  drop-oldest ring. The renderer must not talk to SocketCAN or parse DBC.
+  drop-oldest ring. Graph is a uPlot live plot over the same `rx.batch`
+  decode stream (independent pause, 10–30 Hz UI decimation). The renderer
+  must not talk to SocketCAN or parse DBC.
 - **Main** owns the window, the Unix-socket path, and a **minimal** engine
   supervisor (spawn, log disconnect, respawn, request/response). Full
   hardening is later (T16).
@@ -44,8 +46,8 @@ Connect/Disconnect, DBC path + Load, engine/bus pills). T9 replaces the T5 RX
 stub with a production virtualized Trace (`react-virtuoso`): filter, pause,
 clear, scroll lock, expandable DBC signals, and a 20_000-frame drop-oldest
 ring. T10 is the M1 exit smoke: one bus, fixture DBC, `rate_ms`, and the N2
-<50 ms first-paint gate (`npm run test:smoke`). Graph is a T11 placeholder;
-Transmit is a T12/T13 placeholder. T4–T7 bus/RX/`rate_ms`/DBC unpack stay as
+<50 ms first-paint gate (`npm run test:smoke`). Graph is T11 (uPlot + DBC
+signal picker). Transmit is a T12/T13 placeholder. T4–T7 bus/RX/`rate_ms`/DBC unpack stay as
 they are. The engine does not bring interfaces up or set bitrate via
 `CAP_NET_ADMIN`. See [smoke.md](smoke.md) for the Xvfb/headless CI path.
 

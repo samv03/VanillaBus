@@ -230,11 +230,18 @@ input.mono {
   min-height: 0;
 }
 
-.app-body-graph,
 .app-body-transmit {
   max-width: 72rem;
   margin: 0 auto;
   padding: 1.35rem 1.5rem 3rem;
+}
+
+.app-body-graph {
+  display: flex;
+  flex-direction: column;
+  max-width: none;
+  margin: 0;
+  padding: 0;
 }
 
 .app-body-trace {
@@ -766,4 +773,239 @@ tr:last-child td {
 
 .placeholder-screen .lede {
   margin-top: 0.75rem;
+}
+
+.graph-screen {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  background: var(--bg);
+}
+
+.graph-picker {
+  flex: 0 0 17.5rem;
+  min-width: 15rem;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.graph-picker-head {
+  padding: 0.75rem 0.9rem 0.55rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.graph-picker-head h2 {
+  margin: 0 0 0.55rem;
+}
+
+.graph-search input {
+  width: 100%;
+  font-size: 0.82rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  padding: 0.4rem 0.55rem;
+}
+
+.graph-picker-tree {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.4rem 0 0.6rem;
+}
+
+.graph-picker-empty {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.8rem;
+}
+
+.graph-msg-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0.35rem 0.9rem;
+  text-align: left;
+  font-size: 0.78rem;
+}
+
+.graph-msg-toggle:hover:not(:disabled) {
+  background: #21262d;
+}
+
+.graph-msg-name {
+  font-weight: 600;
+}
+
+.graph-msg-id {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.graph-sig-list {
+  margin: 0;
+  padding: 0 0 0.35rem;
+  list-style: none;
+}
+
+.graph-sig label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.22rem 0.9rem 0.22rem 1.55rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.graph-sig label:hover {
+  background: #21262d;
+}
+
+.graph-swatch {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 0.15rem;
+  flex: 0 0 auto;
+}
+
+.graph-swatch-empty {
+  background: transparent;
+  border: 1px solid var(--border);
+}
+
+.graph-seen {
+  margin-left: auto;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.graph-picker-count {
+  margin: 0;
+  padding: 0.5rem 0.9rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.75rem;
+}
+
+.graph-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.graph-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  padding: 0.55rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.graph-window-chips {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.graph-toolbar-label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-right: 0.25rem;
+}
+
+.graph-chip {
+  min-width: 3.1rem;
+  padding: 0.28rem 0.55rem;
+  font-size: 0.78rem;
+}
+
+.graph-chip-active,
+.graph-tool-active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.graph-toolbar-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.graph-tool-btn {
+  font-size: 0.8rem;
+}
+
+.graph-plot {
+  flex: 1;
+  min-height: 16rem;
+  position: relative;
+  background: var(--bg);
+}
+
+.graph-plot-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.graph-uplot {
+  position: absolute;
+  inset: 0.4rem 0.6rem 0.2rem;
+}
+
+.graph-uplot .u-wrap,
+.graph-uplot .u-over {
+  background: transparent;
+}
+
+.graph-legend {
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  max-height: 11rem;
+  overflow: auto;
+}
+
+.graph-legend table {
+  border: 0;
+}
+
+.graph-legend th,
+.graph-legend td {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.78rem;
+}
+
+.graph-legend-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.graph-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.4rem 1rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.graph-footer p {
+  margin: 0;
 }

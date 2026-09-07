@@ -6,8 +6,10 @@ Connect/Disconnect, DBC path + Load, status pills). Tab state is the URL
 hash (`#trace`, `#graph`, `#transmit`); switching tabs does not tear down
 the engine. T9 replaces the T5 RX stub with a **virtualized Trace**
 (`react-virtuoso`): filter, Pause, Clear, scroll lock, expandable DBC
-signals, and a bounded 20_000-frame drop-oldest ring. Graph and Transmit
-are placeholders (T11 / T12–T13).
+signals, and a bounded 20_000-frame drop-oldest ring. Graph is a live
+**uPlot** signal plot (T11): DBC picker, 10s/30s/60s window, independent
+Pause, UI-side 10–30 Hz decimation, and a memory-bounded sample window.
+Transmit is still a placeholder (T12–T13).
 
 After `bus.open`, `vanillabus-engine` recv()s on that python-can bus and
 emits `rx.batch` (≤16 ms or ≤500 frames). T6 fills `rate_ms` as the last
@@ -84,7 +86,9 @@ spawns `python3 -m can_engine --ipc <socket>`. After `engine.hello` the shared
 header shows **Engine Connected**. The same header is on Trace, Graph, and
 Transmit. Use the bus dropdown + **Connect** to call `bus.list` / `bus.open`.
 **Load** (header DBC path) calls `dbc.load`. Inject frames on the open iface
-and they appear in the virtualized Trace table.
+and they appear in the virtualized Trace table. The **Graph** tab plots
+numeric `decode.signals` in uPlot (10s/30s/60s window, Pause is independent
+of Trace). In `npm run dev`, Graph has a Demo button for synthetic series.
 
 The IPC socket lives under `$XDG_RUNTIME_DIR/vanillabus/` (mode 0600), or a
 private 0700 `mkstemp` directory — not a world-writable predictable `/tmp` path.
@@ -109,6 +113,7 @@ python3 scripts/test-dbc-unpack.py    # T7 golden unpack + mux + allowlist
 npm run test:dbc-bridge               # parseFrameEvent decode + supervisor load/clear (tsx)
 npm run test:shell                    # T8 hash tabs — plain node, no tsx / --test
 npm run test:trace                    # T9 ring / filter / N2 first-paint (tsx)
+npm run test:graph                    # T11 decimation / pause / window (tsx)
 npm run test:smoke                    # T10 M1 Trace+DBC+rate + N2 (tsx)
 # or: npm run test:m1                 # test:smoke + Electron/Xvfb stub
 ```
@@ -127,6 +132,13 @@ same paint path on the first `rx.batch`. If not, it prints
 batch also logs `[trace-n2] first-paint … ms` to the renderer console.
 `test:smoke` reuses that N2 helper (`shared/traceN2.ts`) and adds the
 DBC + `rate_ms` live slice.
+
+`test:graph` always checks UI-side decimation (a 1 kHz synthetic burst
+collapses to 10–30 samples/s), Graph pause freeze (Trace can still
+append), and drop-oldest window capacity. Mux frames only contribute
+signals present on `decode.signals`. If `vcan0` is UP it also loads
+`sample.dbc`, injects EngineStatus, and asserts live Graph samples. If
+not, it prints `SKIP vcan0 graph` and still exits 0.
 
 `test-rx-batch.py` always checks FrameEvent mapping, drop-oldest, and ≤500
 batching (no host CAN required). If `vcan0` is UP it opens the iface, injects
@@ -252,7 +264,7 @@ sudo ./scripts/setup-vcan.sh          # vcan0 UP for bus.open + RX
 package.json
 electron/main/          # window + engine spawn / UDS client + ipc-bridge
 electron/preload/       # window.vanillabus (status + bus + DBC + onRxBatch)
-electron/renderer/      # React shell (tabs + shared header) + virtualized Trace
+electron/renderer/      # React shell + virtualized Trace + uPlot Graph
 engine/pyproject.toml   # vanillabus-engine (python-can + cantools)
 engine/can_engine/      # framing server + SocketCAN + RX pump + DBC unpack
 shared/engine.ts        # renderer/host types

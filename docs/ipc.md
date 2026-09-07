@@ -36,7 +36,7 @@ T3+ maps status and bus commands onto `window.vanillabus` (see
 | `bus.open` | request `{ "name", "bitrate"? }` → `{ "busId" }` | Bind only if the iface exists and is UP. `bitrate` optional; ignored for vcan. Missing/down → `engine.error` (`iface_not_found` / `iface_down`). Never `ip link set up`. |
 | `bus.close` | request `{ "busId" }` → `{ "ok": true }` | Reopen after close is allowed (new `busId`). |
 | `rx.batch` | engine event | `{ "frames": [FrameEvent, …], "dropped": <int> }` — after `bus.open`, ≤16 ms or ≤500 frames. `rate_ms` is last inter-arrival ms, or `null` on the first sample per `(busId, can_id, is_eff)`. Known IDs may include `decode: { name, signals }` when a DBC is bound. |
-| `dbc.load` | request `{ "busId", "path" }` → `{ "ok": true, "message_count" }` | One DBC per open busId, loaded with cantools. Path must resolve under the project/fixtures allowlist. Failures: `engine.error` (`path_not_allowed`, `dbc_not_found`, `dbc_invalid`, `bus_not_found`). |
+| `dbc.load` | request `{ "busId", "path" }` → `{ "ok": true, "message_count", "catalog"? }` | One DBC per open busId, loaded with cantools. Optional `catalog` lists message/signal names for the Graph picker. Path must resolve under the project/fixtures allowlist. Failures: `engine.error` (`path_not_allowed`, `dbc_not_found`, `dbc_invalid`, `bus_not_found`). |
 | `dbc.clear` | request `{ "busId" }` → `{ "ok": true }` | Unload the DBC for that bus. Idempotent if none is loaded. |
 
 Unknown request types get `engine.error` with `code: "not_implemented"`.

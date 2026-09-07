@@ -19,6 +19,7 @@
     "scripts/test-rx-bridge.ts",
     "scripts/test-dbc-bridge.ts",
     "scripts/test-trace.ts",
+    "scripts/test-graph.ts",
     "scripts/test-smoke.ts",
     "electron.vite.config.ts"
   ],

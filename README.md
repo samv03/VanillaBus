@@ -109,6 +109,8 @@ python3 scripts/test-dbc-unpack.py    # T7 golden unpack + mux + allowlist
 npm run test:dbc-bridge               # parseFrameEvent decode + supervisor load/clear (tsx)
 npm run test:shell                    # T8 hash tabs — plain node, no tsx / --test
 npm run test:trace                    # T9 ring / filter / N2 first-paint (tsx)
+npm run test:smoke                    # T10 M1 Trace+DBC+rate + N2 (tsx)
+# or: npm run test:m1                 # test:smoke + Electron/Xvfb stub
 ```
 
 `test:shell` runs `node scripts/test-shell-tabs.mjs` (assert + `shared/appTabs.mjs`,
@@ -123,6 +125,8 @@ proxy — not all rows. First-paint and every subsequent batch must stay
 same paint path on the first `rx.batch`. If not, it prints
 `SKIP vcan0 trace N2` and still exits 0. In `npm run dev`, the first live
 batch also logs `[trace-n2] first-paint … ms` to the renderer console.
+`test:smoke` reuses that N2 helper (`shared/traceN2.ts`) and adds the
+DBC + `rate_ms` live slice.
 
 `test-rx-batch.py` always checks FrameEvent mapping, drop-oldest, and ≤500
 batching (no host CAN required). If `vcan0` is UP it opens the iface, injects
@@ -154,6 +158,71 @@ Bring it up with: sudo ./scripts/setup-vcan.sh
 
 Creating vcan in CI needs `sudo` / `CAP_NET_ADMIN`. This repo does not sudo
 from the test.
+
+## M1 smoke
+
+T10 packages the single-bus **Trace + DBC + `rate_ms`** slice as a runnable
+smoke. How to run it:
+
+```bash
+npm install
+python3 -m pip install -e engine/
+npm run test:smoke          # required M1 gate
+# optional alias that also runs the Electron stub:
+npm run test:m1
+```
+
+What `test:smoke` does:
+
+1. **N2 (always).** Reuses the T9 first-paint instrumentation
+   (`shared/traceN2.ts`, same path as `test:trace`): a synthetic ≤2 kfps
+   stream (32-frame / 16 ms batches) is appended to the 20_000-frame ring
+   and only the visible window (~24 rows) is painted. First-paint and every
+   later batch must stay **<50 ms**. Measured numbers print as
+   `M1 N2 synthetic first-paint … ms`.
+2. **Interactive under load (always).** After that fill, filter / pause /
+   clear must stay under the same 50 ms budget. In the app the Trace
+   toolbar (filter, Pause, Clear, scroll lock) stays usable because
+   virtualization paints only the visible rows — this is the automated
+   stand-in for “UI remains interactive under load.”
+3. **Live vcan (optional).** If `vcan0` is UP: spawn the engine,
+   `bus.open vcan0`, `dbc.load fixtures/dbc/sample.dbc`, inject
+   `EngineStatus` (`cansend` / python-can), and assert `rx.batch` frames
+   have `decode.name` plus numeric `rate_ms` after enough samples. Live
+   first-paint of the first `rx.batch` is also gated at <50 ms. A 2 kfps
+   burst is attempted when extra batches arrive.
+4. **SKIP if no vcan.** Live steps print a clear message and still exit 0:
+
+```text
+SKIP vcan0 M1 smoke: vcan0 is not UP on this host. Bring it up with: sudo ./scripts/setup-vcan.sh
+```
+
+Bring the iface up first if you want the live slice:
+
+```bash
+sudo ./scripts/setup-vcan.sh
+npm run test:smoke
+```
+
+### Xvfb / headless Electron (CI)
+
+`test:smoke` does not need a display. The optional desktop stub is for CI
+runners that should prove Electron can start headless:
+
+```bash
+sudo apt-get install -y xvfb
+npm run build
+xvfb-run -a npm run test:smoke:electron
+```
+
+`scripts/smoke-electron.sh` sets `VANILLABUS_SMOKE=1`, launches the **built**
+app (`out/main/index.js`), waits for `engine.hello`, and exits 0. The
+window is not shown. It **exits 0 with SKIP** when there is no display and
+no `xvfb-run`, when `vcan0` is not UP, or when the build output is
+missing. Full GUI Trace driving is not required for M1; without a display
+the stub is SKIP, not a failure.
+
+See [docs/smoke.md](docs/smoke.md) for the CI job sketch.
 
 ## Inject frames (verify RX)
 
@@ -190,13 +259,14 @@ shared/engine.ts        # renderer/host types
 shared/appTabs.ts       # typed re-export of Trace | Graph | Transmit helpers
 shared/appTabs.mjs      # same helpers for plain `node` (no tsx / --test)
 shared/ipc-schema.json  # locked IPC types
-scripts/                # check-host, setup-vcan, hello + bus + rx + dbc tests
+scripts/                # check-host, setup-vcan, hello + bus + rx + dbc + M1 smoke
 fixtures/dbc/           # sample + mux + invalid DBC (engine-side only)
 fixtures/golden/        # unpack vectors for sample + mux
 docs/architecture.md
 docs/ipc.md
 docs/preload.md
 docs/privileges.md
+docs/smoke.md           # T10 M1 smoke + Xvfb/headless CI notes
 ```
 
 See [docs/ipc.md](docs/ipc.md) for the framing contract. Message types:

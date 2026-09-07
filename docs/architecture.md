@@ -43,9 +43,11 @@ T8 is app chrome: top tabs plus a shared header (bus dropdown,
 Connect/Disconnect, DBC path + Load, engine/bus pills). T9 replaces the T5 RX
 stub with a production virtualized Trace (`react-virtuoso`): filter, pause,
 clear, scroll lock, expandable DBC signals, and a 20_000-frame drop-oldest
-ring. Graph is a T11 placeholder; Transmit is a T12/T13 placeholder.
-T4–T7 bus/RX/`rate_ms`/DBC unpack stay as they are. The engine does not bring
-interfaces up or set bitrate via `CAP_NET_ADMIN`.
+ring. T10 is the M1 exit smoke: one bus, fixture DBC, `rate_ms`, and the N2
+<50 ms first-paint gate (`npm run test:smoke`). Graph is a T11 placeholder;
+Transmit is a T12/T13 placeholder. T4–T7 bus/RX/`rate_ms`/DBC unpack stay as
+they are. The engine does not bring interfaces up or set bitrate via
+`CAP_NET_ADMIN`. See [smoke.md](smoke.md) for the Xvfb/headless CI path.
 
 Layout (T8): top tabs, not a left rail. Theme is dark engineering
 (`#0d1117` / `#161b22`); IDs, hex, and rate use monospace.

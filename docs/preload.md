@@ -21,6 +21,7 @@ window.vanillabus = {
   closeBus(busId): Promise<BusCloseResult>
   loadDbc(busId, path): Promise<DbcLoadResult>
   clearDbc(busId): Promise<DbcClearResult>
+  browseDbc(currentPath?): Promise<DbcBrowseResult>  // native picker; does not load
   sendFrame(request): Promise<TxSendResult>
   startCyclic(request): Promise<TxCyclicStartResult>
   stopCyclic(jobId): Promise<TxCyclicStopResult>
@@ -59,6 +60,12 @@ cantools runs in the engine. Catalog entries may include optional
 invents mux branches — it only plots numeric values present on
 `decode.signals`.
 
+`browseDbc` opens a native `dialog.showOpenDialog` in main (filters:
+`*.dbc` plus all files). It returns `{ ok: true, path }` or
+`{ ok: false, cancelled: true }`. The renderer only fills the DBC path
+field — **Load** still runs the engine allowlist (dev: checkout +
+`fixtures/`; packaged: `$HOME`).
+
 The renderer never receives Unix-socket frames, SocketCAN handles, or DBC
 objects. Trace displays `decode.name` / `decode.signals` / `decode.units`
 from `rx.batch` in an expandable row.
@@ -74,6 +81,7 @@ from `rx.batch` in an expandable row.
 | `vanillabus:bus-close` | invoke | `BusCloseResult` |
 | `vanillabus:dbc-load` | invoke | `DbcLoadResult` |
 | `vanillabus:dbc-clear` | invoke | `DbcClearResult` |
+| `vanillabus:dbc-browse` | invoke | `DbcBrowseResult` |
 | `vanillabus:tx-send` | invoke | `TxSendResult` |
 | `vanillabus:tx-cyclic-start` | invoke | `TxCyclicStartResult` |
 | `vanillabus:tx-cyclic-stop` | invoke | `TxCyclicStopResult` |
@@ -131,7 +139,8 @@ Rate median: `npm run test:rate`.
 ## DBC load / unpack
 
 1. Open vcan0 as above.
-2. Set the header DBC path to `fixtures/dbc/sample.dbc` (or `mux.dbc`) and **Load**.
+2. Set the header DBC path to `fixtures/dbc/sample.dbc` (or `mux.dbc`) with
+   **Browse…** or by typing, then **Load**.
 3. Inject a known ID, e.g. `cansend vcan0 100#E8035A0A00000000` — Trace shows
    `EngineStatus`; expand the row for `EngineSpeed` / value / `rpm`.
 4. Inject an unknown ID (`cansend vcan0 7FF#DEADBEEF`) — the row stays raw.

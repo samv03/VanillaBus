@@ -2,7 +2,7 @@
 
 SocketCAN-first desktop bus monitor. T8 is a dedicated app shell: top tabs
 **Trace | Graph | Transmit** and one shared bus/DBC header (dropdown,
-Connect/Disconnect, DBC path + Load, status pills). Tab state is the URL
+Connect/Disconnect, DBC path + Browse + Load, status pills). Tab state is the URL
 hash (`#trace`, `#graph`, `#transmit`); switching tabs does not tear down
 the engine. T9 replaces the T5 RX stub with a **virtualized Trace**
 (`react-virtuoso`): filter, Pause, Clear, scroll lock, expandable DBC
@@ -117,7 +117,8 @@ header shows **Engine Connected**. The same header is on Trace, Graph, and
 Transmit. Use the bus dropdown + **Connect** to call `bus.list` / `bus.open`.
 Connect a second iface the same way (select `vcan1`, Connect). Open-bus
 chips switch the **active** bus for DBC Load and the Graph target.
-**Load** (header DBC path) calls `dbc.load` on the active `busId` only.
+**Browse…** fills the DBC path from a native file picker; **Load** still
+calls `dbc.load` on the active `busId` only (allowlist unchanged).
 Inject frames on either open iface and they appear in the virtualized
 Trace table (Bus column = ifName). The **Graph** tab plots
 numeric `decode.signals` in uPlot (10s/30s/60s window, Pause is independent

@@ -18,6 +18,7 @@
     "scripts/test-bus-bridge.ts",
     "scripts/test-rx-bridge.ts",
     "scripts/test-dbc-bridge.ts",
+    "scripts/test-dbc-browse.ts",
     "scripts/test-trace.ts",
     "scripts/test-graph.ts",
     "scripts/test-tx-bridge.ts",

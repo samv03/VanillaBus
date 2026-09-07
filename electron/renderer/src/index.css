@@ -152,25 +152,26 @@ input.mono {
 }
 
 .shared-header {
-  padding: 0.75rem 1.25rem 0.65rem;
+  padding: 0.7rem 1.25rem 0.55rem;
 }
 
 .shared-header-row {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 1rem 1.5rem;
+  gap: 0.65rem 1.15rem;
 }
 
 .header-group {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: flex-end;
-  gap: 0.5rem;
+  gap: 0.45rem;
 }
 
 .header-group-dbc {
   flex: 1 1 22rem;
+  min-width: 0;
 }
 
 .header-group-engine {
@@ -180,6 +181,7 @@ input.mono {
 .header-field {
   display: flex;
   flex-direction: column;
+  justify-content: flex-end;
   gap: 0.25rem;
   color: var(--muted);
   font-size: 0.72rem;
@@ -189,7 +191,20 @@ input.mono {
 
 .header-field-wide {
   flex: 1 1 16rem;
-  min-width: 14rem;
+  min-width: 12rem;
+}
+
+.header-field-spacer {
+  visibility: hidden;
+  user-select: none;
+}
+
+.header-field select,
+.header-field input,
+.shared-header .header-group > button {
+  height: 2.125rem;
+  min-height: 2.125rem;
+  box-sizing: border-box;
 }
 
 .header-field select,
@@ -199,22 +214,36 @@ input.mono {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 0.35rem;
-  padding: 0.4rem 0.55rem;
+  padding: 0 0.55rem;
   min-width: 10rem;
+}
+
+.shared-header .header-group > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.75rem;
+  white-space: nowrap;
 }
 
 .header-field-wide input {
   width: 100%;
 }
 
+.header-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+  margin-top: 0.4rem;
+}
+
 .header-dbc-meta {
-  font-size: 0.78rem;
-  max-width: 16rem;
+  font-size: 0.75rem;
+  max-width: 22rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  align-self: center;
-  padding-bottom: 0.15rem;
 }
 
 form.header-group {
@@ -224,8 +253,9 @@ form.header-group {
 .header-drop-pill {
   display: inline-flex;
   align-items: center;
-  align-self: center;
-  padding: 0.28rem 0.55rem;
+  align-self: flex-end;
+  height: 2.125rem;
+  padding: 0 0.55rem;
   border-radius: 999px;
   border: 1px solid var(--warn-border);
   background: var(--warn-bg);
@@ -241,7 +271,6 @@ form.header-group {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem 0.45rem;
-  margin-top: 0.5rem;
 }
 
 .header-remembered-down {
@@ -253,7 +282,6 @@ form.header-group {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem 0.45rem;
-  margin-top: 0.5rem;
 }
 
 .header-open-label {
@@ -296,8 +324,6 @@ form.header-group {
 
 .header-vendor-hint {
   font-size: 0.75rem;
-  align-self: center;
-  padding-bottom: 0.15rem;
 }
 
 .header-blacklist-warn {
@@ -396,7 +422,8 @@ code {
   align-items: center;
   gap: 0.45rem;
   margin: 0;
-  padding: 0.4rem 0.75rem;
+  height: 2.125rem;
+  padding: 0 0.75rem;
   border-radius: 999px;
   border: 1px solid;
   font-weight: 600;
@@ -404,7 +431,8 @@ code {
   text-transform: uppercase;
   font-size: 0.72rem;
   white-space: nowrap;
-  align-self: center;
+  box-sizing: border-box;
+  align-self: flex-end;
 }
 
 .badge-dot {
@@ -1424,6 +1452,10 @@ tr:last-child td {
 }
 
 @media (max-width: 960px) {
+  .header-group {
+    flex-wrap: wrap;
+  }
+
   .tx-columns {
     grid-template-columns: 1fr;
   }

@@ -10,7 +10,12 @@ import {
   type DbcLoadOk,
   type EngineHello,
   type EngineStatus,
-  type RxBatch
+  type RxBatch,
+  type TxCyclicStartOk,
+  type TxCyclicStartRequest,
+  type TxCyclicStopOk,
+  type TxSendOk,
+  type TxSendRequest
 } from '../../shared/engine'
 import { EngineClient, EngineRequestError } from './engineClient'
 import { createIpcSocketPath } from './ipcPath'
@@ -98,6 +103,27 @@ export class EngineSupervisor {
 
   async clearDbc(busId: string): Promise<DbcClearOk> {
     await this.request('dbc.clear', { busId })
+    return { ok: true }
+  }
+
+  async sendFrame(request: TxSendRequest): Promise<TxSendOk> {
+    await this.request('tx.send', txPayload(request))
+    return { ok: true }
+  }
+
+  async startCyclic(request: TxCyclicStartRequest): Promise<TxCyclicStartOk> {
+    const result = await this.request('tx.cyclic.start', {
+      ...txPayload(request),
+      period_ms: request.period_ms
+    })
+    if (typeof result.job_id !== 'string' || result.job_id.length === 0) {
+      throw new EngineRequestError('invalid_payload', 'tx.cyclic.start response missing job_id')
+    }
+    return { ok: true, job_id: result.job_id }
+  }
+
+  async stopCyclic(jobId: string): Promise<TxCyclicStopOk> {
+    await this.request('tx.cyclic.stop', { job_id: jobId })
     return { ok: true }
   }
 
@@ -302,6 +328,30 @@ export class EngineSupervisor {
     }
     child.kill('SIGTERM')
   }
+}
+
+function txPayload(request: TxSendRequest): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
+    busId: request.busId,
+    can_id: request.can_id,
+    data: request.data
+  }
+  if (typeof request.dlc === 'number') {
+    payload.dlc = request.dlc
+  }
+  if (typeof request.is_eff === 'boolean') {
+    payload.is_eff = request.is_eff
+  }
+  if (typeof request.is_rtr === 'boolean') {
+    payload.is_rtr = request.is_rtr
+  }
+  if (typeof request.is_fd === 'boolean') {
+    payload.is_fd = request.is_fd
+  }
+  if (typeof request.brs === 'boolean') {
+    payload.brs = request.brs
+  }
+  return payload
 }
 
 function parseInterfaces(raw: unknown): BusInterface[] | null {

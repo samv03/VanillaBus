@@ -123,6 +123,10 @@ class RxPump:
                 break
         return frames
 
+    def enqueue(self, frame: dict[str, Any]) -> None:
+        """Thread-safe enqueue used by RX and by T12 TX echo (dir=tx)."""
+        self._enqueue(frame)
+
     def _note_drop(self) -> None:
         with self._dropped_lock:
             self._dropped += 1

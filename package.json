@@ -2,7 +2,7 @@
   "name": "vanillabus",
   "productName": "VanillaBus",
   "version": "0.1.0",
-  "description": "SocketCAN-first desktop bus monitor (T11 uPlot Graph).",
+    "description": "SocketCAN-first desktop bus monitor (T12 raw TX).",
   "license": "GPL-3.0-or-later",
   "author": "Sam Vinella",
   "private": true,
@@ -27,6 +27,8 @@
     "test:shell": "node scripts/test-shell-tabs.mjs",
     "test:trace": "tsx --test scripts/test-trace.ts",
     "test:graph": "tsx --test scripts/test-graph.ts",
+    "test:tx": "python3 scripts/test-tx.py",
+    "test:tx-bridge": "tsx --test scripts/test-tx-bridge.ts",
     "test:smoke": "tsx --test scripts/test-smoke.ts",
     "test:smoke:electron": "bash scripts/smoke-electron.sh",
     "test:m1": "npm run test:smoke && npm run test:smoke:electron"

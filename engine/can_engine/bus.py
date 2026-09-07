@@ -11,9 +11,12 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+import threading
+
 from can_engine.dbc import DbcError, DbcStore
 from can_engine.rate import RateTracker
-from can_engine.rx import RX_BATCH_MAX_FRAMES, RxPump
+from can_engine.rx import RX_BATCH_MAX_FRAMES, RxPump, message_to_frame
+from can_engine.tx import CyclicScheduler, TxError, TxSpec, build_can_message, parse_period_ms, parse_tx_spec
 
 # Linux ARPHRD_CAN / IFF_UP. Used so list() can report down ifaces too.
 ARPHRD_CAN = 280
@@ -155,8 +158,10 @@ class BusManager:
         self._buses: dict[str, Any] = {}
         self._names: dict[str, str] = {}
         self._pumps: dict[str, RxPump] = {}
+        self._send_locks: dict[str, threading.Lock] = {}
         self._rates = RateTracker()
         self._dbc = DbcStore()
+        self._cyclic = CyclicScheduler()
 
     def list(self) -> dict[str, Any]:
         return {"interfaces": list_interfaces(self._sysfs_net)}
@@ -187,6 +192,7 @@ class BusManager:
         self._names[bus_id] = channel
         pump = RxPump(bus, bus_id, channel, rates=self._rates, decode=self._dbc.attach)
         self._pumps[bus_id] = pump
+        self._send_locks[bus_id] = threading.Lock()
         pump.start()
         return {"busId": bus_id}
 
@@ -215,9 +221,62 @@ class BusManager:
                 frames.extend(pump.drain(room))
         return frames, dropped
 
+    def send(self, payload: object) -> dict[str, Any]:
+        """One-shot raw TX. Echoes dir=tx onto the RX queue for Trace."""
+        spec = parse_tx_spec(payload)
+        self._send_spec(spec)
+        return {"ok": True}
+
+    def start_cyclic(self, payload: object) -> dict[str, Any]:
+        spec = parse_tx_spec(payload)
+        period_ms = parse_period_ms(payload.get("period_ms") if isinstance(payload, dict) else None)
+        if spec.bus_id not in self._buses:
+            raise TxError("bus_not_found", f"no open bus with busId {spec.bus_id}")
+        job_id = self._cyclic.start(spec, period_ms, self._send_spec)
+        return {"job_id": job_id}
+
+    def stop_cyclic(self, payload: object) -> dict[str, Any]:
+        if not isinstance(payload, dict):
+            raise TxError("invalid_payload", "tx.cyclic.stop requires payload.job_id")
+        self._cyclic.stop(payload.get("job_id"))
+        return {"ok": True}
+
+    def _send_spec(self, spec: TxSpec) -> None:
+        bus = self._buses.get(spec.bus_id)
+        if bus is None:
+            raise TxError("bus_not_found", f"no open bus with busId {spec.bus_id}")
+        msg = build_can_message(spec)
+        lock = self._send_locks.get(spec.bus_id)
+        try:
+            if lock is not None:
+                with lock:
+                    bus.send(msg)
+            else:
+                bus.send(msg)
+        except TxError:
+            raise
+        except Exception as exc:
+            raise TxError("tx_failed", f"SocketCAN send failed: {exc}") from exc
+        self._echo_tx(spec.bus_id, msg)
+
+    def _echo_tx(self, bus_id: str, msg: Any) -> None:
+        if_name = self._names.get(bus_id)
+        pump = self._pumps.get(bus_id)
+        if if_name is None or pump is None:
+            return
+        frame = message_to_frame(msg, bus_id, if_name)
+        frame["dir"] = "tx"
+        self._rates.attach(frame)
+        try:
+            self._dbc.attach(frame)
+        except Exception:
+            frame["decode"] = None
+        pump.enqueue(frame)
+
     def close(self, bus_id: object) -> dict[str, Any]:
         if not isinstance(bus_id, str) or not bus_id:
             raise BusError("invalid_payload", "bus.close requires payload.busId")
+        self._cyclic.stop_bus(bus_id)
         pump = self._pumps.pop(bus_id, None)
         if pump is not None:
             pump.stop()
@@ -225,6 +284,7 @@ class BusManager:
         self._rates.clear_bus(bus_id)
         bus = self._buses.pop(bus_id, None)
         self._names.pop(bus_id, None)
+        self._send_locks.pop(bus_id, None)
         if bus is None:
             raise BusError("bus_not_found", f"no open bus with busId {bus_id}")
         shutdown = getattr(bus, "shutdown", None)
@@ -236,6 +296,7 @@ class BusManager:
         return {"ok": True}
 
     def close_all(self) -> None:
+        self._cyclic.stop_all()
         for bus_id in list(self._buses):
             try:
                 self.close(bus_id)

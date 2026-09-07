@@ -30,7 +30,11 @@ from can_engine.protocol import (
     heartbeat_message,
     hello_message,
     rx_batch_message,
+    tx_cyclic_start_message,
+    tx_cyclic_stop_message,
+    tx_send_message,
 )
+from can_engine.tx import TxError
 from can_engine.rx import RX_BATCH_INTERVAL_S, RX_BATCH_MAX_FRAMES
 
 LOG = logging.getLogger("vanillabus-engine")
@@ -123,7 +127,19 @@ async def handle_request(message: dict, manager: BusManager, send) -> None:
             manager.clear_dbc(payload.get("busId"))
             await send(dbc_clear_message(msg_id))
             return
-    except (BusError, DbcError) as exc:
+        if msg_type == "tx.send":
+            manager.send(payload)
+            await send(tx_send_message(msg_id))
+            return
+        if msg_type == "tx.cyclic.start":
+            started = manager.start_cyclic(payload)
+            await send(tx_cyclic_start_message(started["job_id"], msg_id))
+            return
+        if msg_type == "tx.cyclic.stop":
+            manager.stop_cyclic(payload)
+            await send(tx_cyclic_stop_message(msg_id))
+            return
+    except (BusError, DbcError, TxError) as exc:
         await send(error_message(exc.code, exc.message, msg_id))
         return
     except Exception:

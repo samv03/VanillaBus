@@ -101,6 +101,41 @@ export type DbcClearOk = {
 export type DbcLoadResult = DbcLoadOk | BusCommandError
 export type DbcClearResult = DbcClearOk | BusCommandError
 
+/** Raw one-shot TX (T12). data is hex; spaces are stripped by the engine. */
+export type TxSendRequest = {
+  readonly busId: string
+  readonly can_id: number
+  readonly data: string
+  readonly dlc?: number
+  readonly is_eff?: boolean
+  readonly is_rtr?: boolean
+  readonly is_fd?: boolean
+  readonly brs?: boolean
+}
+
+export type TxSendOk = {
+  readonly ok: true
+}
+
+export type TxSendResult = TxSendOk | BusCommandError
+
+export type TxCyclicStartRequest = TxSendRequest & {
+  readonly period_ms: number
+}
+
+export type TxCyclicStartOk = {
+  readonly ok: true
+  readonly job_id: string
+}
+
+export type TxCyclicStartResult = TxCyclicStartOk | BusCommandError
+
+export type TxCyclicStopOk = {
+  readonly ok: true
+}
+
+export type TxCyclicStopResult = TxCyclicStopOk | BusCommandError
+
 export type FrameDir = 'rx' | 'tx'
 
 export type SignalValue = number | string | boolean
@@ -138,8 +173,8 @@ export type RxBatch = {
 
 /**
  * Narrow context-bridge API exposed as `window.vanillabus`.
- * Bus list/open/close, DBC load/clear, and rx.batch go through main → engine IPC.
- * No SocketCAN or DBC parse in the renderer.
+ * Bus list/open/close, DBC load/clear, raw TX, and rx.batch go through
+ * main → engine IPC. No SocketCAN or DBC parse in the renderer.
  */
 export type VanillaBusApi = {
   readonly version: string
@@ -153,6 +188,9 @@ export type VanillaBusApi = {
   closeBus: (busId: string) => Promise<BusCloseResult>
   loadDbc: (busId: string, path: string) => Promise<DbcLoadResult>
   clearDbc: (busId: string) => Promise<DbcClearResult>
+  sendFrame: (request: TxSendRequest) => Promise<TxSendResult>
+  startCyclic: (request: TxCyclicStartRequest) => Promise<TxCyclicStartResult>
+  stopCyclic: (jobId: string) => Promise<TxCyclicStopResult>
   onRxBatch: (listener: (batch: RxBatch) => void) => Unsubscribe
 }
 

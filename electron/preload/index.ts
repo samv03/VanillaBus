@@ -8,6 +8,11 @@ import type {
   EngineConnectionEvent,
   EngineInfo,
   RxBatch,
+  TxCyclicStartRequest,
+  TxCyclicStartResult,
+  TxCyclicStopResult,
+  TxSendRequest,
+  TxSendResult,
   Unsubscribe,
   VanillaBusApi
 } from '../../shared/engine'
@@ -19,6 +24,9 @@ const BUS_OPEN_CHANNEL = 'vanillabus:bus-open'
 const BUS_CLOSE_CHANNEL = 'vanillabus:bus-close'
 const DBC_LOAD_CHANNEL = 'vanillabus:dbc-load'
 const DBC_CLEAR_CHANNEL = 'vanillabus:dbc-clear'
+const TX_SEND_CHANNEL = 'vanillabus:tx-send'
+const TX_CYCLIC_START_CHANNEL = 'vanillabus:tx-cyclic-start'
+const TX_CYCLIC_STOP_CHANNEL = 'vanillabus:tx-cyclic-stop'
 const RX_BATCH_CHANNEL = 'vanillabus:rx-batch'
 
 function subscribe<T>(channel: string, listener: (payload: T) => void): Unsubscribe {
@@ -61,6 +69,12 @@ const api: VanillaBusApi = {
   loadDbc: (busId: string, path: string): Promise<DbcLoadResult> =>
     ipcRenderer.invoke(DBC_LOAD_CHANNEL, busId, path),
   clearDbc: (busId: string): Promise<DbcClearResult> => ipcRenderer.invoke(DBC_CLEAR_CHANNEL, busId),
+  sendFrame: (request: TxSendRequest): Promise<TxSendResult> =>
+    ipcRenderer.invoke(TX_SEND_CHANNEL, request),
+  startCyclic: (request: TxCyclicStartRequest): Promise<TxCyclicStartResult> =>
+    ipcRenderer.invoke(TX_CYCLIC_START_CHANNEL, request),
+  stopCyclic: (jobId: string): Promise<TxCyclicStopResult> =>
+    ipcRenderer.invoke(TX_CYCLIC_STOP_CHANNEL, jobId),
   onRxBatch: (listener): Unsubscribe => subscribe<RxBatch>(RX_BATCH_CHANNEL, listener)
 }
 

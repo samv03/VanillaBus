@@ -150,7 +150,7 @@ binary. `can-utils` / vcan / host libs stay as documented.
 ```bash
 python3 -m venv ~/.local/share/vanillabus/venv
 ~/.local/share/vanillabus/venv/bin/pip install 'python-can>=4.3' 'cantools>=39.4'
-./dist/VanillaBus-0.1.0-x64.AppImage    # not sudo
+./dist/VanillaBus-0.1.0-x86_64.AppImage    # not sudo
 ```
 
 On relaunch the header shows **Remembered** bus chips and the last DBC

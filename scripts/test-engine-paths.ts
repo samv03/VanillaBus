@@ -112,6 +112,7 @@ test('VANILLABUS_PYTHON and packaged XDG venv beat PATH python3', () => {
   mkdirSync(venvBin, { recursive: true })
   const venvPython = join(venvBin, 'python3')
   writeFileSync(venvPython, '#!/bin/sh\n')
+  writeFileSync(join(venvBin, 'pip'), '#!/bin/sh\n')
   assert.equal(
     resolvePythonBin({
       env: { XDG_DATA_HOME: dataHome },
@@ -122,6 +123,21 @@ test('VANILLABUS_PYTHON and packaged XDG venv beat PATH python3', () => {
   )
   assert.equal(resolvePythonBin({ env: { XDG_DATA_HOME: dataHome } }), 'python3')
   assert.equal(resolvePythonBin({ env: {} }), 'python3')
+})
+
+test('incomplete user venv (python symlink, no pip) is ignored', () => {
+  const dataHome = mkdtempSync(join(tmpdir(), 'vanillabus-data-'))
+  const venvBin = join(dataHome, 'vanillabus', 'venv', 'bin')
+  mkdirSync(venvBin, { recursive: true })
+  writeFileSync(join(venvBin, 'python3'), '#!/bin/sh\n')
+  assert.equal(
+    resolvePythonBin({
+      env: { XDG_DATA_HOME: dataHome },
+      resourcesPath: '/opt/VanillaBus/resources',
+      defaultApp: false
+    }),
+    'python3'
+  )
 })
 
 test('packaged spawn env sets PYTHONPATH, engine root, and VANILLABUS_ROOT=$HOME', () => {
@@ -158,6 +174,7 @@ test('packaged launch prefers the user venv python when present', () => {
   const venvPython = join(dataHome, 'vanillabus', 'venv', 'bin', 'python3')
   mkdirSync(join(dataHome, 'vanillabus', 'venv', 'bin'), { recursive: true })
   writeFileSync(venvPython, '#!/bin/sh\n')
+  writeFileSync(join(dataHome, 'vanillabus', 'venv', 'bin', 'pip'), '#!/bin/sh\n')
 
   const plan = planEngineLaunch({
     cwd: mkdtempSync(join(tmpdir(), 'vanillabus-cwd-')),

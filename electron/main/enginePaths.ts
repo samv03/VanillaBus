@@ -84,8 +84,10 @@ export function resolvePythonBin(options: EnginePathOptions = {}): string {
       env.XDG_DATA_HOME?.trim() ||
       (env.HOME && env.HOME.length > 0 ? join(env.HOME, '.local', 'share') : '')
     if (dataHome) {
-      const venvPython = join(dataHome, 'vanillabus', 'venv', 'bin', 'python3')
-      if (existsSync(venvPython)) {
+      const venvDir = join(dataHome, 'vanillabus', 'venv')
+      const venvPython = join(venvDir, 'bin', 'python3')
+      // A failed `python3 -m venv` can leave a python symlink without pip.
+      if (existsSync(venvPython) && existsSync(join(venvDir, 'bin', 'pip'))) {
         return venvPython
       }
     }

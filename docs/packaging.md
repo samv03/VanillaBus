@@ -94,11 +94,15 @@ electron-builder for **AppImage** and **deb** (Ubuntu 22.04 / 24.04).
 Artifacts land in **`dist/`** (gitignored):
 
 ```text
-dist/VanillaBus-0.1.0-x64.AppImage
+dist/VanillaBus-0.1.0-x86_64.AppImage
 dist/vanillabus_0.1.0_amd64.deb
 dist/linux-unpacked/vanillabus          # unpacked tree used by test:smoke:packaged
 dist/linux-unpacked/resources/engine/   # Python sources, outside asar
 ```
+
+`${arch}` for AppImage is `x86_64` (not `x64`). There is no custom icon yet;
+electron-builder logs that it uses the default Electron icon. That is not a
+vendor SDK. Do not add proprietary icon packs.
 
 ```bash
 npm ci
@@ -137,6 +141,8 @@ Python binary:
 1. `VANILLABUS_PYTHON` if set
 2. `$XDG_DATA_HOME/vanillabus/venv/bin/python3` (default
    `~/.local/share/vanillabus/venv/bin/python3`) when that file exists
+   **and** the venv also has `bin/pip` (a failed `python3 -m venv` can
+   leave a broken tree; install `python3-venv` first)
 3. `python3` on `PATH`
 
 Install engine **dependencies** once per user (PEP 668 on Ubuntu 24.04
@@ -170,7 +176,8 @@ dev still allowlists the git checkout + `fixtures/` as before.
 ```bash
 # AppImage (user, not sudo). chmod +x once. libfuse2 may be required to
 # mount AppImages on some hosts; the linux-unpacked tree does not need FUSE.
-./dist/VanillaBus-0.1.0-x64.AppImage
+# Without FUSE: ./dist/VanillaBus-0.1.0-x86_64.AppImage --appimage-extract-and-run
+./dist/VanillaBus-0.1.0-x86_64.AppImage
 
 # .deb
 sudo dpkg -i dist/vanillabus_0.1.0_amd64.deb   # installs the files

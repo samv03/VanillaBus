@@ -6,6 +6,7 @@
   "license": "GPL-3.0-or-later",
   "author": "Sam Vinella",
   "homepage": "https://github.com/samv03/VanillaBus",
+  "desktopName": "io.github.samv03.vanillabus",
   "repository": {
     "type": "git",
     "url": "https://github.com/samv03/VanillaBus.git"

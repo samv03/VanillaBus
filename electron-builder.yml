@@ -43,11 +43,12 @@ linux:
     Host python3 plus python-can and cantools are still required; see docs/packaging.md.
     Never run the packaged app as root. Do not setcap the Electron binary.
   desktop:
-    Name: VanillaBus
-    Comment: SocketCAN-first desktop bus monitor
-    Terminal: false
-    Type: Application
-    Categories: Development;Engineering;
+    entry:
+      Name: VanillaBus
+      Comment: SocketCAN-first desktop bus monitor
+      Terminal: false
+      Type: Application
+      Categories: Development;Engineering;
 
 appImage:
   artifactName: ${productName}-${version}-${arch}.${ext}
@@ -56,5 +57,3 @@ deb:
   artifactName: ${name}_${version}_${arch}.${ext}
   depends:
     - python3
-
-publish: never

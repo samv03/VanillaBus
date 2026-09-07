@@ -7,7 +7,7 @@
  */
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import type { FrameEvent, RxBatch } from '../shared/engine'
+import type { FrameEvent } from '../shared/engine'
 import { GraphStore } from '../shared/graphStore'
 import {
   findOpenedByName,
@@ -57,8 +57,9 @@ test('header helpers label open buses and keep the other selection on close', ()
 
 test('Trace ring keeps Bus (ifName) + busId for frames from both buses', () => {
   const ring = new FrameRing(32)
-  const dropped = applyRxBatch(ring, {
-    frames: [
+  const dropped = applyRxBatch(
+    ring,
+    [
       makeFrame({ busId: 'id-a', ifName: 'vcan0', can_id: 0x100 }),
       makeFrame({
         busId: 'id-b',
@@ -71,8 +72,8 @@ test('Trace ring keeps Bus (ifName) + busId for frames from both buses', () => {
         }
       })
     ],
-    dropped: 0
-  } satisfies RxBatch)
+    false
+  )
   assert.equal(dropped, 0)
   assert.equal(ring.size, 2)
   assert.equal(ring.at(0).frame.ifName, 'vcan0')

@@ -14,7 +14,8 @@ import type {
   TxSendRequest,
   TxSendResult,
   Unsubscribe,
-  VanillaBusApi
+  VanillaBusApi,
+  PersistSnapshot
 } from '../../shared/engine'
 
 const ENGINE_INFO_CHANNEL = 'vanillabus:engine-info'
@@ -28,6 +29,8 @@ const TX_SEND_CHANNEL = 'vanillabus:tx-send'
 const TX_CYCLIC_START_CHANNEL = 'vanillabus:tx-cyclic-start'
 const TX_CYCLIC_STOP_CHANNEL = 'vanillabus:tx-cyclic-stop'
 const RX_BATCH_CHANNEL = 'vanillabus:rx-batch'
+const PERSIST_GET_CHANNEL = 'vanillabus:persist-get'
+const PERSIST_SET_CHANNEL = 'vanillabus:persist-set'
 
 function subscribe<T>(channel: string, listener: (payload: T) => void): Unsubscribe {
   const wrapped = (_event: unknown, payload: T): void => {
@@ -75,7 +78,10 @@ const api: VanillaBusApi = {
     ipcRenderer.invoke(TX_CYCLIC_START_CHANNEL, request),
   stopCyclic: (jobId: string): Promise<TxCyclicStopResult> =>
     ipcRenderer.invoke(TX_CYCLIC_STOP_CHANNEL, jobId),
-  onRxBatch: (listener): Unsubscribe => subscribe<RxBatch>(RX_BATCH_CHANNEL, listener)
+  onRxBatch: (listener): Unsubscribe => subscribe<RxBatch>(RX_BATCH_CHANNEL, listener),
+  getPersist: (): Promise<PersistSnapshot> => ipcRenderer.invoke(PERSIST_GET_CHANNEL),
+  setPersist: (snapshot: PersistSnapshot): Promise<PersistSnapshot> =>
+    ipcRenderer.invoke(PERSIST_SET_CHANNEL, snapshot)
 }
 
 contextBridge.exposeInMainWorld('vanillabus', api)

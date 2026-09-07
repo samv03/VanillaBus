@@ -10,7 +10,7 @@ type CyclicJobsTableProps = {
 export function CyclicJobsTable({ jobs, onStop }: CyclicJobsTableProps): ReactElement {
   return (
     <section className="tx-col tx-col-jobs">
-      <h2>Active cyclic jobs</h2>
+      <h2>Cyclic jobs</h2>
       <div className="tx-jobs-wrap">
         <table>
           <thead>
@@ -27,7 +27,8 @@ export function CyclicJobsTable({ jobs, onStop }: CyclicJobsTableProps): ReactEl
             {jobs.length === 0 ? (
               <tr>
                 <td colSpan={6} className="muted">
-                  No cyclic jobs. Start one from Raw send or DBC pack.
+                  No cyclic jobs. Start one from Raw send or DBC pack. Definitions are
+                  remembered across relaunch as Stopped — they do not auto-start.
                 </td>
               </tr>
             ) : (
@@ -47,7 +48,9 @@ export function CyclicJobsTable({ jobs, onStop }: CyclicJobsTableProps): ReactEl
                         job.status === 'Running' ? 'tx-job-running' : 'tx-job-stopped'
                       }`}
                     >
-                      {job.status}
+                      {job.status === 'Stopped' && job.jobId.startsWith('remembered-')
+                        ? 'Remembered'
+                        : job.status}
                     </span>
                   </td>
                   <td>

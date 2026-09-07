@@ -63,7 +63,7 @@ export function GraphToolbar({
       <p className="graph-bus-hint muted">
         {activeBusName
           ? `Plotting ${activeBusName} (header-selected bus). Frames from other open buses stay in Trace.`
-          : 'Plotting all decoded frames until a bus is connected. Graph follows the header-selected open bus.'}
+          : 'Connect a bus to plot that ifName only. Window length and selected signal names are remembered.'}
       </p>
     </div>
   )

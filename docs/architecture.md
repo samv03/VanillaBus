@@ -27,14 +27,15 @@ VanillaBus is a SocketCAN-first desktop bus monitor.
   decode stream (independent pause, 10–30 Hz UI decimation). Transmit is
   raw one-shot + cyclic TX (T12) and DBC pack/encode (T13). The renderer
   must not talk to SocketCAN or parse DBC.
-- **Main** owns the window, the Unix-socket path, and the engine supervisor
+- **Main** owns the window, the Unix-socket path, the UI persist JSON
+  (`vanillabus-ui.json` under userData), and the engine supervisor
   (spawn, log disconnect, respawn, request/response). T16 hardens
   backpressure, OOM caps, IPC framing, and restart under load — see
   [hardening.md](hardening.md).
 - **Preload** exposes `window.vanillabus`: engine status plus `listBuses` /
   `openBus` / `closeBus` / `loadDbc` / `clearDbc` / `sendFrame` /
-  `startCyclic` / `stopCyclic` / `onRxBatch`. No raw sockets or SocketCAN
-  handles. Types live in `shared/engine.ts`.
+  `startCyclic` / `stopCyclic` / `getPersist` / `setPersist` / `onRxBatch`.
+  No raw sockets or SocketCAN handles. Types live in `shared/engine.ts`.
 - **ipc-bridge** (main) maps supervisor host events, bus/DBC/TX RPCs, and
   `rx.batch` onto those preload channels.
 - **Engine** is a Python package. All bus I/O and DBC unpack belong here
@@ -61,8 +62,11 @@ metadata, and privilege / CAN FD docs — still SocketCAN-only, no vendor
 SDKs. T16 (M4 start) hardens RX drop-oldest + `dropped`, batch ≤16–33 ms
 or ≤500 frames, queue / Trace / Graph / rate-key caps, IPC oversized and
 partial-read rejection, and supervisor restart under load
-(`npm run test:harden`). T4–T7 bus/RX/`rate_ms`/DBC unpack stay as they
-are. The engine does not bring interfaces up or set bitrate via
+(`npm run test:harden`). T17 persists last-used buses, DBC paths, Trace /
+Graph prefs, and Transmit drafts / cyclic definitions under Electron
+`userData` (`npm run test:persist`) and adds empty-state / packaging notes
+([packaging.md](packaging.md)). T4–T7 bus/RX/`rate_ms`/DBC unpack stay as
+they are. The engine does not bring interfaces up or set bitrate via
 `CAP_NET_ADMIN`. See [smoke.md](smoke.md) for the Xvfb/headless CI path,
 [hardening.md](hardening.md) for T16, and
 [socketcan-vendors.md](socketcan-vendors.md) for Peak / Kvaser / IXXAT.

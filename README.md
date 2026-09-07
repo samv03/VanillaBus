@@ -20,8 +20,11 @@ you add a kernel `can-gw` bridge. T15 documents vendor SocketCAN
 driver / vendor / blacklist metadata. T16 (**M4 start**) hardens
 drop-oldest RX + a visible `dropped` counter, batch ≤16–33 ms or ≤500
 frames, OOM caps, IPC oversized/partial-read rejection, and engine
-restart under load (`npm run test:harden`). See
-[docs/hardening.md](docs/hardening.md).
+restart under load (`npm run test:harden`). T17 (**M4 persist**) remembers
+last-used bus names, per-bus DBC paths, Trace/Graph prefs, and Transmit
+drafts / cyclic *definitions* in Electron userData. Restore is a hint —
+the app does **not** auto-open a down iface or restart live TX. See
+[docs/packaging.md](docs/packaging.md) and [docs/hardening.md](docs/hardening.md).
 
 After `bus.open`, `vanillabus-engine` recv()s on that python-can bus and
 emits `rx.batch` (≤16–33 ms or ≤500 frames). T6 fills `rate_ms` as the last
@@ -32,7 +35,8 @@ IDs still flow through RX as raw frames.
 
 ## Requirements
 
-Documented host: **Ubuntu 22.04 or 24.04**.
+Documented host: **Ubuntu 22.04 or 24.04**. Run / build / Electron deps:
+[docs/packaging.md](docs/packaging.md).
 
 ```bash
 sudo apt update
@@ -115,7 +119,13 @@ of Trace). In `npm run dev`, Graph has a Demo button for synthetic series.
 The IPC socket lives under `$XDG_RUNTIME_DIR/vanillabus/` (mode 0600), or a
 private 0700 `mkstemp` directory — not a world-writable predictable `/tmp` path.
 
-See [docs/preload.md](docs/preload.md) for the API shape.
+See [docs/preload.md](docs/preload.md) for the API shape and
+[docs/packaging.md](docs/packaging.md) for Ubuntu 22.04/24.04 Electron deps,
+`npm run build`, and “never Electron as root.”
+
+On relaunch the header shows **Remembered** bus chips and the last DBC
+path. Click **Connect** / **Load** when the iface is UP. Cyclic jobs come
+back as **Remembered / Stopped** (definitions only).
 
 ## Tests
 
@@ -144,6 +154,7 @@ npm run test:tx-dbc                   # T13 golden pack + cyclic DBC ±10% (SKIP
 npm run test:tx-bridge                # T12/T13 hex/period helpers + supervisor TX (tsx)
 npm run test:multibus                 # T14 two buses + DBC isolation (python + tsx)
 npm run test:harden                   # T16 backpressure / OOM / IPC / restart
+npm run test:persist                  # T17 userData store round-trip (offline)
 npm run test:smoke                    # T10 M1 Trace+DBC+rate + N2 (tsx)
 # or: npm run test:m1                 # test:smoke + Electron/Xvfb stub
 ```
@@ -194,6 +205,11 @@ Graph window + series caps, and supervisor restart under IPC load.
 If `vcan0` is UP it also floods a live bus and kills the engine under
 RX/TX load, then asserts reconnect + `rx.batch`. If not, it prints
 `SKIP vcan0 harden` and still exits 0.
+
+`test:persist` (`npm run test:persist`) is offline: it sanitizes a persist
+snapshot, merges remembered iface names, and round-trips
+`vanillabus-ui.json` through `UserStore` (temp dir, no Electron window).
+Restore helpers assert that remembered buses are **hints** (no auto-open).
 
 `test-rx-batch.py` always checks FrameEvent mapping, drop-oldest, and ≤500
 batching (no host CAN required). If `vcan0` is UP it opens the iface, injects
@@ -374,11 +390,12 @@ sudo ./scripts/setup-vcan.sh          # vcan0 + vcan1 UP for bus.open + multi-bu
 ```
 package.json
 electron/main/          # window + engine spawn / UDS client + ipc-bridge
-electron/preload/       # window.vanillabus (status + bus + DBC + TX + onRxBatch)
-electron/renderer/      # React shell + Trace + Graph + Transmit
+electron/preload/       # window.vanillabus (status + bus + DBC + TX + persist + onRxBatch)
+electron/renderer/      # React shell + Trace + Graph + Transmit + persist restore
 engine/pyproject.toml   # vanillabus-engine (python-can + cantools)
 engine/can_engine/      # framing server + SocketCAN + RX/TX + DBC unpack
 shared/engine.ts        # renderer/host types
+shared/persist.ts       # T17 UI snapshot sanitize / restore helpers
 shared/appTabs.ts       # typed re-export of Trace | Graph | Transmit helpers
 shared/appTabs.mjs      # same helpers for plain `node` (no tsx / --test)
 shared/ipc-schema.json  # locked IPC types
@@ -387,6 +404,7 @@ fixtures/dbc/           # sample + mux + invalid DBC (engine-side only)
 fixtures/golden/        # unpack + pack vectors for sample + mux
 docs/architecture.md
 docs/hardening.md       # T16 backpressure, OOM caps, IPC, restart
+docs/packaging.md       # T17 run/build on Ubuntu 22.04/24.04 — never Electron as root
 docs/ipc.md
 docs/preload.md
 docs/privileges.md      # pre-UP, pkexec, setcap — never Electron as root

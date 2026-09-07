@@ -8,9 +8,15 @@ import type { TraceModel } from '../trace/useTraceModel'
 
 type TraceScreenProps = {
   readonly model: TraceModel
+  readonly rememberedName?: string
+  readonly engineConnected?: boolean
 }
 
-export function TraceScreen({ model }: TraceScreenProps): ReactElement {
+export function TraceScreen({
+  model,
+  rememberedName,
+  engineConnected = true
+}: TraceScreenProps): ReactElement {
   const filteredCount = useMemo(() => {
     return visibleCount(model.ring, collectMatchingIndices(model.ring, model.filter))
   }, [model.ring, model.filter, model.generation, model.size])
@@ -40,6 +46,13 @@ export function TraceScreen({ model }: TraceScreenProps): ReactElement {
         scrollLock={model.scrollLock}
         expanded={model.expanded}
         onToggle={model.toggleExpanded}
+        emptyHint={
+          !engineConnected
+            ? 'Engine disconnected. Trace prefs (filter / pause / scroll lock) are remembered.'
+            : rememberedName
+              ? `No frames yet. Connect ${rememberedName} when it is UP, then inject traffic (cansend / cangen). Buses are not auto-opened.`
+              : undefined
+        }
       />
       <p className="trace-footnote muted">
         Virtualized Trace — only visible rows render. The Bus column is the

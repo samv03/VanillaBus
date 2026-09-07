@@ -45,8 +45,9 @@ export function GraphPicker({
       <div className="graph-picker-tree">
         {groups.length === 0 ? (
           <p className="graph-picker-empty muted">
-            Load a DBC to list known signals, or wait for decoded RX. Graph only
-            plots values present on <code>decode.signals</code>.
+            Load a DBC on the header-selected bus to list signals, or wait for
+            decoded RX. Last-session checks restore after Load. Graph only plots
+            values present on <code>decode.signals</code>.
           </p>
         ) : (
           groups.map((group) => {
@@ -112,7 +113,7 @@ export function GraphPicker({
         )}
       </div>
       <p className="graph-picker-count muted">
-        {selected.length} / {entries.length} signals selected
+        {selected.length} selected · {entries.length} listed
       </p>
     </aside>
   )

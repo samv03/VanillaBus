@@ -12,6 +12,7 @@ type TraceTableProps = {
   readonly scrollLock: boolean
   readonly expanded: ReadonlySet<number>
   readonly onToggle: (seq: number) => void
+  readonly emptyHint?: string
 }
 
 export function TraceTable({
@@ -21,7 +22,8 @@ export function TraceTable({
   filter,
   scrollLock,
   expanded,
-  onToggle
+  onToggle,
+  emptyHint
 }: TraceTableProps): ReactElement {
   const indices = collectMatchingIndices(ring, filter)
   const count = visibleCount(ring, indices)
@@ -43,8 +45,9 @@ export function TraceTable({
         {count === 0 ? (
           <p className="trace-empty muted">
             {size === 0
-              ? 'Connect a bus, then inject frames. Example: cansend vcan0 100#E8035A0A00000000'
-              : 'No frames match this filter.'}
+              ? emptyHint ??
+                'Connect a bus, then inject frames. Example: cansend vcan0 100#E8035A0A00000000'
+              : 'No frames match this filter. Clear the filter or Pause/Resume to keep watching.'}
           </p>
         ) : (
           <Virtuoso

@@ -22,6 +22,7 @@
     "scripts/test-graph.ts",
     "scripts/test-tx-bridge.ts",
     "scripts/test-smoke.ts",
+    "scripts/test-persist.ts",
     "electron.vite.config.ts"
   ],
   "references": [{ "path": "./tsconfig.shared.json" }]

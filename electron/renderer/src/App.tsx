@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactElement } from 'react'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
 import {
   DISCONNECTED_ENGINE_INFO,
   type BusInterface,
@@ -6,6 +6,16 @@ import {
   type EngineInfo
 } from '../../../shared/engine'
 import { parseAppTab, type AppTab } from '../../../shared/appTabs'
+import {
+  buildPersistSnapshot,
+  dbcPathForBus,
+  DEFAULT_PERSIST,
+  jobsToDefinitions,
+  rememberedEmptyListText,
+  rememberedRestoreText,
+  upsertBusHint,
+  type PersistSnapshot
+} from '../../../shared/persist'
 import { useGraphModel } from './graph/useGraphModel'
 import { GraphScreen } from './screens/GraphScreen'
 import { TraceScreen } from './screens/TraceScreen'
@@ -18,6 +28,7 @@ import { useTraceModel } from './trace/useTraceModel'
 import { useTransmitModel } from './transmit/useTransmitModel'
 
 const SAMPLE_DBC = 'fixtures/dbc/sample.dbc'
+const PERSIST_DEBOUNCE_MS = 350
 
 function readTab(): AppTab {
   return parseAppTab(window.location.hash)
@@ -30,11 +41,16 @@ export function App(): ReactElement {
   const [interfaces, setInterfaces] = useState<readonly BusInterface[]>([])
   const [listWarnings, setListWarnings] = useState<readonly BusListWarning[]>([])
   const [opened, setOpened] = useState<OpenedBus[]>([])
-  const [selectedBus, setSelectedBus] = useState('vcan0')
+  const [selectedBus, setSelectedBus] = useState(DEFAULT_PERSIST.lastBusName)
   const [dbcPath, setDbcPath] = useState(SAMPLE_DBC)
+  const [remembered, setRemembered] = useState(DEFAULT_PERSIST.buses)
   const [busStatus, setBusStatus] = useState<BusActionStatus>({ kind: 'idle' })
   const [listing, setListing] = useState(false)
   const [connecting, setConnecting] = useState(false)
+  const [restored, setRestored] = useState(false)
+  const persistRef = useRef<PersistSnapshot>(DEFAULT_PERSIST)
+  const wasConnected = useRef(false)
+  const persistLoaded = useRef(false)
   const trace = useTraceModel()
   const graph = useGraphModel()
   const transmit = useTransmitModel(api)
@@ -51,6 +67,34 @@ export function App(): ReactElement {
       window.removeEventListener('hashchange', onHashChange)
     }
   }, [])
+
+  useEffect(() => {
+    if (persistLoaded.current) {
+      return
+    }
+    persistLoaded.current = true
+    if (!api?.getPersist) {
+      setRestored(true)
+      return
+    }
+    void api
+      .getPersist()
+      .then((snapshot) => {
+        persistRef.current = snapshot
+        setSelectedBus(snapshot.lastBusName)
+        setDbcPath(dbcPathForBus(snapshot, snapshot.lastBusName))
+        setRemembered(snapshot.buses)
+        trace.hydratePrefs(snapshot.trace)
+        graph.hydratePrefs(snapshot.graph)
+        transmit.hydratePrefs(snapshot.txRaw, snapshot.txDbc, snapshot.cyclicJobs)
+        if (snapshot.buses.length > 0 || snapshot.lastBusName.length > 0) {
+          setBusStatus({ kind: 'ok', text: rememberedRestoreText(snapshot) })
+        }
+      })
+      .finally(() => {
+        setRestored(true)
+      })
+  }, [api, graph.hydratePrefs, trace.hydratePrefs, transmit.hydratePrefs])
 
   useEffect(() => {
     if (!api) {
@@ -70,15 +114,20 @@ export function App(): ReactElement {
   }, [api, graph.appendBatch, trace.appendBatch, transmit.noteBatch])
 
   useEffect(() => {
-    if (!info.connected) {
+    if (!info.connected && wasConnected.current) {
       setInterfaces([])
       setListWarnings([])
       setOpened([])
       trace.reset()
       graph.reset()
       transmit.reset()
+      setBusStatus({
+        kind: 'ok',
+        text: `Engine disconnected. ${rememberedRestoreText(persistRef.current)}`
+      })
     }
-  }, [info.connected])
+    wasConnected.current = info.connected
+  }, [graph.reset, info.connected, trace.reset, transmit.reset])
 
   async function refreshList(): Promise<void> {
     if (!api) {
@@ -94,14 +143,18 @@ export function App(): ReactElement {
       setInterfaces(result.interfaces)
       setListWarnings(result.warnings ?? [])
       if (result.interfaces.length > 0 && !result.interfaces.some((iface) => iface.name === selectedBus)) {
-        setSelectedBus(result.interfaces[0].name)
+        if (persistRef.current.buses.some((item) => item.name === selectedBus)) {
+          // keep the remembered name so Connect can surface iface_down / iface_not_found
+        } else {
+          setSelectedBus(result.interfaces[0].name)
+        }
       }
       setBusStatus({
         kind: 'ok',
         text:
           result.interfaces.length === 0
-            ? 'No SocketCAN interfaces. Bring up vcan0 with sudo ./scripts/setup-vcan.sh'
-            : `Listed ${result.interfaces.length} interface${result.interfaces.length === 1 ? '' : 's'}`
+            ? rememberedEmptyListText(persistRef.current)
+            : `Listed ${result.interfaces.length} interface${result.interfaces.length === 1 ? '' : 's'}. Remembered buses stay in the list until you Connect.`
       })
     } finally {
       setListing(false)
@@ -127,7 +180,13 @@ export function App(): ReactElement {
       }
       setOpened((previous) => [...previous, { busId: result.busId, name, dbc: null }])
       setSelectedBus(name)
-      setBusStatus({ kind: 'ok', text: `Opened ${name} → busId ${result.busId}` })
+      setRemembered((previous) => upsertBusHint(previous, name))
+      const rememberedPath = dbcPathForBus(persistRef.current, name)
+      setDbcPath(rememberedPath)
+      setBusStatus({
+        kind: 'ok',
+        text: `Opened ${name} → busId ${result.busId}. Load the remembered DBC if the path is still valid.`
+      })
     } finally {
       setConnecting(false)
     }
@@ -142,6 +201,7 @@ export function App(): ReactElement {
       setBusStatus({ kind: 'error', error: result.error })
       return
     }
+    const target = opened.find((item) => item.busId === busId)
     setOpened((previous) =>
       previous.map((item) =>
         item.busId === busId
@@ -150,7 +210,16 @@ export function App(): ReactElement {
       )
     )
     setDbcPath(path)
+    if (target) {
+      setRemembered((previous) => upsertBusHint(previous, target.name, path))
+    }
     graph.applyDbcCatalog(result.catalog)
+    if (persistRef.current.graph.selected.length > 0) {
+      graph.hydratePrefs({
+        windowSec: graph.windowSec,
+        selected: persistRef.current.graph.selected
+      })
+    }
     setBusStatus({
       kind: 'ok',
       text: `Loaded ${path} (${result.message_count} messages) on ${busId}`
@@ -178,7 +247,9 @@ export function App(): ReactElement {
     const open = opened.find((item) => item.name === name)
     if (open?.dbc) {
       setDbcPath(open.dbc.path)
+      return
     }
+    setDbcPath(dbcPathForBus(persistRef.current, name))
   }
 
   useEffect(() => {
@@ -189,8 +260,68 @@ export function App(): ReactElement {
     graph.setActiveBus(open?.busId ?? null)
     if (open?.dbc) {
       graph.applyDbcCatalog(open.dbc.catalog)
+      if (persistRef.current.graph.selected.length > 0) {
+        graph.hydratePrefs({
+          windowSec: graph.windowSec,
+          selected: persistRef.current.graph.selected
+        })
+      }
     }
-  }, [graph.applyDbcCatalog, graph.demoRunning, graph.setActiveBus, opened, selectedBus])
+  }, [
+    graph.applyDbcCatalog,
+    graph.demoRunning,
+    graph.hydratePrefs,
+    graph.setActiveBus,
+    graph.windowSec,
+    opened,
+    selectedBus
+  ])
+
+  useEffect(() => {
+    if (!restored || !api?.setPersist) {
+      return
+    }
+    const timer = window.setTimeout(() => {
+      const snapshot = buildPersistSnapshot({
+        lastBusName: selectedBus,
+        lastDbcPath: dbcPath,
+        buses: remembered,
+        opened: opened.map((item) => ({ name: item.name, dbcPath: item.dbc?.path ?? null })),
+        trace: {
+          filter: trace.filter,
+          paused: trace.paused,
+          scrollLock: trace.scrollLock
+        },
+        graph: {
+          windowSec: graph.windowSec,
+          selected: graph.selected
+        },
+        txRaw: transmit.draft,
+        txDbc: transmit.dbcDraft,
+        cyclicJobs: jobsToDefinitions(transmit.jobs)
+      })
+      persistRef.current = snapshot
+      void api.setPersist(snapshot)
+    }, PERSIST_DEBOUNCE_MS)
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [
+    api,
+    dbcPath,
+    graph.selected,
+    graph.windowSec,
+    opened,
+    remembered,
+    restored,
+    selectedBus,
+    trace.filter,
+    trace.paused,
+    trace.scrollLock,
+    transmit.dbcDraft,
+    transmit.draft,
+    transmit.jobs
+  ])
 
   function selectTab(next: AppTab): void {
     if (parseAppTab(window.location.hash) !== next) {
@@ -231,6 +362,7 @@ export function App(): ReactElement {
   const connected = info.connected
   const selectedOpen = opened.find((item) => item.name === selectedBus)
   const busConnected = selectedOpen !== undefined
+  const dropped = trace.engineDropped + trace.uiDropped + graph.store.engineDropped
 
   return (
     <AppShell
@@ -242,6 +374,7 @@ export function App(): ReactElement {
           interfaces={interfaces}
           listWarnings={listWarnings}
           opened={opened}
+          remembered={remembered}
           selectedBus={selectedBus}
           onSelectBus={selectHeaderBus}
           busConnected={busConnected}
@@ -254,12 +387,19 @@ export function App(): ReactElement {
           onLoadDbc={() => void headerLoadDbc()}
           loadedDbc={selectedOpen?.dbc ?? null}
           status={busStatus}
+          dropped={dropped}
         />
       }
     >
-      {tab === 'trace' ? <TraceScreen model={trace} /> : null}
+      {tab === 'trace' ? (
+        <TraceScreen model={trace} rememberedName={selectedBus} engineConnected={connected} />
+      ) : null}
       {tab === 'graph' ? (
-        <GraphScreen model={graph} activeBusName={selectedOpen?.name ?? null} />
+        <GraphScreen
+          model={graph}
+          activeBusName={selectedOpen?.name ?? null}
+          hasDbc={selectedOpen?.dbc !== null && selectedOpen?.dbc !== undefined}
+        />
       ) : null}
       {tab === 'transmit' ? (
         <TransmitScreen

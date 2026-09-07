@@ -32,7 +32,7 @@ export function formatError(error: EngineErrorPayload): string {
 
 export function formatStatus(status: BusActionStatus): string {
   if (status.kind === 'idle') {
-    return 'List or open an interface to see the engine result.'
+    return 'List or Connect an interface. Remembered buses are hints only — they are not auto-opened.'
   }
   if (status.kind === 'ok') {
     return status.text

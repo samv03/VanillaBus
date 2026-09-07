@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DbcCatalogMessage, RxBatch } from '../../../../shared/engine'
 import { GRAPH_DEFAULT_HZ, type GraphWindowSec } from '../../../../shared/graphWindow'
+import type { PersistedGraphPrefs } from '../../../../shared/persist'
 import { GraphStore } from '../../../../shared/graphStore'
 import { buildGraphDemoBatch } from './demoTraffic'
 
@@ -23,6 +24,7 @@ export type GraphModel = {
   reset: () => void
   startDemo: () => void
   stopDemo: () => void
+  hydratePrefs: (prefs: PersistedGraphPrefs) => void
 }
 
 export function useGraphModel(): GraphModel {
@@ -114,11 +116,19 @@ export function useGraphModel(): GraphModel {
 
   const reset = useCallback((): void => {
     stopDemo()
-    pausedRef.current = false
-    storeRef.current.reset()
+    storeRef.current.resetLive()
     setActiveBusId(null)
     publish()
   }, [publish, stopDemo])
+
+  const hydratePrefs = useCallback(
+    (prefs: PersistedGraphPrefs): void => {
+      storeRef.current.setWindowSec(prefs.windowSec)
+      storeRef.current.setSelected(prefs.selected)
+      publish()
+    },
+    [publish]
+  )
 
   const startDemo = useCallback((): void => {
     if (demoTimerRef.current !== null) {
@@ -187,6 +197,7 @@ export function useGraphModel(): GraphModel {
     clear,
     reset,
     startDemo,
-    stopDemo
+    stopDemo,
+    hydratePrefs
   }
 }

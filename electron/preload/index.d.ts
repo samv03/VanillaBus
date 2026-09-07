@@ -28,7 +28,8 @@ export type {
   TxSendRequest,
   TxSendResult,
   Unsubscribe,
-  VanillaBusApi
+  VanillaBusApi,
+  PersistSnapshot
 } from '../../shared/engine'
 
 declare global {

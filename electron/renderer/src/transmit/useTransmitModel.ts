@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react'
-import type {
-  FrameEvent,
-  RxBatch,
-  TxCyclicStartRequest,
-  TxSendRequest,
-  VanillaBusApi
+import {
+  isTxRawSendRequest,
+  type FrameEvent,
+  type RxBatch,
+  type TxCyclicStartRequest,
+  type TxSendRequest,
+  type VanillaBusApi
 } from '../../../../shared/engine'
 
 export type CyclicJobType = 'Raw' | 'DBC'
@@ -18,6 +19,7 @@ export type CyclicJobRow = {
   readonly canId: number
   readonly isEff: boolean
   readonly data: string
+  readonly message?: string
   readonly periodMs: number
   readonly status: CyclicJobStatus
 }
@@ -58,17 +60,33 @@ export const DEFAULT_RAW_DRAFT: RawSendDraft = {
   isFd: false
 }
 
+export type DbcPackDraft = {
+  readonly message: string
+  readonly values: Readonly<Record<string, string>>
+  readonly periodMs: number
+}
+
+export const DEFAULT_DBC_DRAFT: DbcPackDraft = {
+  message: '',
+  values: {},
+  periodMs: 100
+}
+
 export type TransmitModel = {
   readonly draft: RawSendDraft
   setDraft: (next: RawSendDraft) => void
+  readonly dbcDraft: DbcPackDraft
+  setDbcDraft: (next: DbcPackDraft) => void
   syncSelectedBus: (name: string) => void
   readonly jobs: readonly CyclicJobRow[]
   readonly stats: TransmitStats
   readonly lastRawJobId: string | null
+  readonly lastDbcJobId: string | null
   sendOnce: (request: TxSendRequest) => Promise<boolean>
   startCyclic: (request: TxCyclicStartRequest, meta: Omit<CyclicJobRow, 'jobId' | 'status'>) => Promise<boolean>
   stopJob: (jobId: string) => Promise<boolean>
   stopLastRaw: () => Promise<boolean>
+  stopLastDbc: () => Promise<boolean>
   noteBatch: (batch: RxBatch) => void
   markBusClosed: (busId: string) => void
   reset: () => void
@@ -82,9 +100,11 @@ function lastTxFromFrame(frame: FrameEvent): LastTx {
 
 export function useTransmitModel(api: VanillaBusApi | undefined): TransmitModel {
   const [draft, setDraft] = useState<RawSendDraft>(DEFAULT_RAW_DRAFT)
+  const [dbcDraft, setDbcDraft] = useState<DbcPackDraft>(DEFAULT_DBC_DRAFT)
   const [jobs, setJobs] = useState<CyclicJobRow[]>([])
   const [stats, setStats] = useState<TransmitStats>(EMPTY_STATS)
   const [lastRawJobId, setLastRawJobId] = useState<string | null>(null)
+  const [lastDbcJobId, setLastDbcJobId] = useState<string | null>(null)
 
   const syncSelectedBus = useCallback((name: string): void => {
     if (name.length === 0) {
@@ -108,14 +128,16 @@ export function useTransmitModel(api: VanillaBusApi | undefined): TransmitModel 
         noteError()
         return false
       }
-      setStats((current) => ({
-        ...current,
-        lastTx: {
-          tsUs: Date.now() * 1000,
-          canId: request.can_id,
-          isEff: request.is_eff ?? request.can_id > 0x7ff
-        }
-      }))
+      if (isTxRawSendRequest(request)) {
+        setStats((current) => ({
+          ...current,
+          lastTx: {
+            tsUs: Date.now() * 1000,
+            canId: request.can_id,
+            isEff: request.is_eff ?? request.can_id > 0x7ff
+          }
+        }))
+      }
       return true
     },
     [api, noteError]
@@ -139,6 +161,8 @@ export function useTransmitModel(api: VanillaBusApi | undefined): TransmitModel 
       setJobs((current) => [...current, row])
       if (meta.type === 'Raw') {
         setLastRawJobId(result.job_id)
+      } else {
+        setLastDbcJobId(result.job_id)
       }
       return true
     },
@@ -180,6 +204,17 @@ export function useTransmitModel(api: VanillaBusApi | undefined): TransmitModel 
     return stopJob(target.jobId)
   }, [jobs, lastRawJobId, stopJob])
 
+  const stopLastDbc = useCallback(async (): Promise<boolean> => {
+    if (lastDbcJobId === null) {
+      return false
+    }
+    const target = jobs.find((job) => job.jobId === lastDbcJobId && job.status === 'Running')
+    if (!target) {
+      return false
+    }
+    return stopJob(target.jobId)
+  }, [jobs, lastDbcJobId, stopJob])
+
   const noteBatch = useCallback((batch: RxBatch): void => {
     const txFrames = batch.frames.filter((frame) => frame.dir === 'tx')
     if (txFrames.length === 0) {
@@ -201,22 +236,28 @@ export function useTransmitModel(api: VanillaBusApi | undefined): TransmitModel 
 
   const reset = useCallback((): void => {
     setDraft(DEFAULT_RAW_DRAFT)
+    setDbcDraft(DEFAULT_DBC_DRAFT)
     setJobs([])
     setStats(EMPTY_STATS)
     setLastRawJobId(null)
+    setLastDbcJobId(null)
   }, [])
 
   return {
     draft,
     setDraft,
+    dbcDraft,
+    setDbcDraft,
     syncSelectedBus,
     jobs,
     stats,
     lastRawJobId,
+    lastDbcJobId,
     sendOnce,
     startCyclic,
     stopJob,
     stopLastRaw,
+    stopLastDbc,
     noteBatch,
     markBusClosed,
     reset

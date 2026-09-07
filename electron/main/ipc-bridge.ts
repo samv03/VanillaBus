@@ -11,6 +11,7 @@ import {
   type EngineInfo,
   type EngineStatus,
   type RxBatch,
+  type SignalValue,
   type TxCyclicStartRequest,
   type TxCyclicStartResult,
   type TxCyclicStopResult,
@@ -39,6 +40,29 @@ function parseOptionalBool(value: unknown): boolean | undefined {
   return typeof value === 'boolean' ? value : undefined
 }
 
+function parseTxSignals(raw: unknown): Record<string, SignalValue> | null {
+  if (raw === null || raw === undefined) {
+    return {}
+  }
+  if (typeof raw !== 'object' || Array.isArray(raw)) {
+    return null
+  }
+  const signals: Record<string, SignalValue> = {}
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (key.length === 0) {
+      return null
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      signals[key] = value
+    } else if (typeof value === 'string' || typeof value === 'boolean') {
+      signals[key] = value
+    } else {
+      return null
+    }
+  }
+  return signals
+}
+
 function parseTxSendRequest(
   raw: unknown
 ): { ok: true; request: TxSendRequest } | { ok: false; error: EngineErrorPayload } {
@@ -49,8 +73,15 @@ function parseTxSendRequest(
   if (typeof record.busId !== 'string' || record.busId.length === 0) {
     return { ok: false, error: { code: 'invalid_payload', message: 'sendFrame requires busId' } }
   }
+  if (typeof record.message === 'string' && record.message.length > 0) {
+    const signals = parseTxSignals(record.signals)
+    if (signals === null) {
+      return { ok: false, error: { code: 'invalid_payload', message: 'sendFrame signals must be name → value' } }
+    }
+    return { ok: true, request: { busId: record.busId, message: record.message, signals } }
+  }
   if (typeof record.can_id !== 'number' || !Number.isInteger(record.can_id) || record.can_id < 0) {
-    return { ok: false, error: { code: 'invalid_payload', message: 'sendFrame requires integer can_id' } }
+    return { ok: false, error: { code: 'invalid_payload', message: 'sendFrame requires integer can_id or message' } }
   }
   if (typeof record.data !== 'string') {
     return { ok: false, error: { code: 'invalid_payload', message: 'sendFrame requires data hex' } }

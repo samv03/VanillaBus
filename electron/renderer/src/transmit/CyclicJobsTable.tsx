@@ -27,7 +27,7 @@ export function CyclicJobsTable({ jobs, onStop }: CyclicJobsTableProps): ReactEl
             {jobs.length === 0 ? (
               <tr>
                 <td colSpan={6} className="muted">
-                  No cyclic jobs. Start one from Raw send.
+                  No cyclic jobs. Start one from Raw send or DBC pack.
                 </td>
               </tr>
             ) : (
@@ -36,6 +36,7 @@ export function CyclicJobsTable({ jobs, onStop }: CyclicJobsTableProps): ReactEl
                   <td className="mono">{index + 1}</td>
                   <td>{job.type}</td>
                   <td className="mono">
+                    {job.message ? `${job.message} · ` : ''}
                     {formatCanIdPrefixed(job.canId, job.isEff)}
                     <span className="tx-job-if muted"> {job.ifName}</span>
                   </td>

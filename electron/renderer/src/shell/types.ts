@@ -1,4 +1,8 @@
-import type { EngineConnectionEvent, EngineErrorPayload } from '../../../../shared/engine'
+import type {
+  DbcCatalogMessage,
+  EngineConnectionEvent,
+  EngineErrorPayload
+} from '../../../../shared/engine'
 
 export type EventLogItem = {
   readonly at: string
@@ -8,6 +12,7 @@ export type EventLogItem = {
 export type OpenedDbc = {
   readonly path: string
   readonly messageCount: number
+  readonly catalog: readonly DbcCatalogMessage[]
 }
 
 export type OpenedBus = {

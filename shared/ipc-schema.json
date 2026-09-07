@@ -315,7 +315,10 @@
                           "required": ["name"],
                           "properties": {
                             "name": { "type": "string" },
-                            "unit": { "type": "string" }
+                            "unit": { "type": "string" },
+                            "min": { "type": "number", "description": "Optional DBC minimum (physical)." },
+                            "max": { "type": "number", "description": "Optional DBC maximum (physical)." },
+                            "initial": { "type": "number", "description": "Optional DBC initial / UI default (physical)." }
                           }
                         }
                       }
@@ -374,27 +377,50 @@
           }
         },
         "tx.send": {
-          "description": "Send a single raw frame on an open busId. Engine-owned SocketCAN send. Echoes dir=tx onto rx.batch for Trace. DBC pack is T13.",
+          "description": "Send a single frame on an open busId. Raw: can_id + hex data. DBC pack: message + signals (cantools encode using the DBC already loaded for busId). Echoes dir=tx onto rx.batch for Trace.",
           "type": "object",
           "properties": {
             "direction": { "const": "request-response" },
             "request": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["busId", "can_id", "data"],
-              "properties": {
-                "busId": { "type": "string", "description": "Open-bus id from bus.open." },
-                "can_id": { "type": "integer", "minimum": 0 },
-                "data": {
-                  "type": "string",
-                  "description": "Hex payload. Spaces/colons are stripped by the engine."
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["busId", "can_id", "data"],
+                  "properties": {
+                    "busId": { "type": "string", "description": "Open-bus id from bus.open." },
+                    "can_id": { "type": "integer", "minimum": 0 },
+                    "data": {
+                      "type": "string",
+                      "description": "Hex payload. Spaces/colons are stripped by the engine."
+                    },
+                    "dlc": { "type": "integer", "minimum": 0, "maximum": 64 },
+                    "is_eff": { "type": "boolean" },
+                    "is_rtr": { "type": "boolean" },
+                    "is_fd": { "type": "boolean" },
+                    "brs": { "type": "boolean" }
+                  }
                 },
-                "dlc": { "type": "integer", "minimum": 0, "maximum": 64 },
-                "is_eff": { "type": "boolean" },
-                "is_rtr": { "type": "boolean" },
-                "is_fd": { "type": "boolean" },
-                "brs": { "type": "boolean" }
-              }
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["busId", "message", "signals"],
+                  "properties": {
+                    "busId": { "type": "string", "description": "Open-bus id from bus.open." },
+                    "message": {
+                      "type": "string",
+                      "description": "DBC message name. Packed with cantools using the DBC bound to busId."
+                    },
+                    "signals": {
+                      "type": "object",
+                      "description": "Physical signal name → value. Engine encodes; renderer does not parse DBC.",
+                      "additionalProperties": {
+                        "type": ["number", "string", "boolean"]
+                      }
+                    }
+                  }
+                }
+              ]
             },
             "response": {
               "type": "object",
@@ -407,28 +433,48 @@
           }
         },
         "tx.cyclic.start": {
-          "description": "Start an engine-owned cyclic raw TX job. Stop with tx.cyclic.stop {job_id}. Period is interval ms; median interval should stay within ±10%.",
+          "description": "Start an engine-owned cyclic TX job (raw or DBC pack). DBC jobs pack once at start and repeat the raw frame. Stop with tx.cyclic.stop {job_id}. Period is interval ms; median interval should stay within ±10%.",
           "type": "object",
           "properties": {
             "direction": { "const": "request-response" },
             "request": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["busId", "can_id", "data", "period_ms"],
-              "properties": {
-                "busId": { "type": "string", "description": "Open-bus id from bus.open." },
-                "can_id": { "type": "integer", "minimum": 0 },
-                "data": {
-                  "type": "string",
-                  "description": "Hex payload. Spaces/colons are stripped by the engine."
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["busId", "can_id", "data", "period_ms"],
+                  "properties": {
+                    "busId": { "type": "string", "description": "Open-bus id from bus.open." },
+                    "can_id": { "type": "integer", "minimum": 0 },
+                    "data": {
+                      "type": "string",
+                      "description": "Hex payload. Spaces/colons are stripped by the engine."
+                    },
+                    "period_ms": { "type": "integer", "minimum": 1 },
+                    "dlc": { "type": "integer", "minimum": 0, "maximum": 64 },
+                    "is_eff": { "type": "boolean" },
+                    "is_rtr": { "type": "boolean" },
+                    "is_fd": { "type": "boolean" },
+                    "brs": { "type": "boolean" }
+                  }
                 },
-                "period_ms": { "type": "integer", "minimum": 1 },
-                "dlc": { "type": "integer", "minimum": 0, "maximum": 64 },
-                "is_eff": { "type": "boolean" },
-                "is_rtr": { "type": "boolean" },
-                "is_fd": { "type": "boolean" },
-                "brs": { "type": "boolean" }
-              }
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["busId", "message", "signals", "period_ms"],
+                  "properties": {
+                    "busId": { "type": "string", "description": "Open-bus id from bus.open." },
+                    "message": { "type": "string" },
+                    "signals": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": ["number", "string", "boolean"]
+                      }
+                    },
+                    "period_ms": { "type": "integer", "minimum": 1 }
+                  }
+                }
+              ]
             },
             "response": {
               "type": "object",

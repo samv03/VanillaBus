@@ -8,4 +8,4 @@ Engine-side only. The renderer never parses these files.
 | `mux.dbc` | Basic multiplex: `MuxId` + `CoolantTemp` (m0) / `FuelPressure` (m1) |
 | `invalid.dbc` | Allowlisted path that must fail `dbc.load` with `engine.error` |
 
-Unpack vectors live in [`fixtures/golden/`](../golden/).
+Unpack and pack vectors live in [`fixtures/golden/`](../golden/).

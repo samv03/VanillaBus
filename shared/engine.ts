@@ -79,9 +79,12 @@ export type BusCloseResult = BusCloseOk | BusCommandError
 export type DbcCatalogSignal = {
   readonly name: string
   readonly unit: string
+  readonly min?: number
+  readonly max?: number
+  readonly initial?: number
 }
 
-/** Message → signals from dbc.load so Graph can pick before RX arrives. */
+/** Message → signals from dbc.load so Graph / Transmit can pick before RX arrives. */
 export type DbcCatalogMessage = {
   readonly name: string
   readonly can_id: number
@@ -101,8 +104,10 @@ export type DbcClearOk = {
 export type DbcLoadResult = DbcLoadOk | BusCommandError
 export type DbcClearResult = DbcClearOk | BusCommandError
 
+export type SignalValue = number | string | boolean
+
 /** Raw one-shot TX (T12). data is hex; spaces are stripped by the engine. */
-export type TxSendRequest = {
+export type TxRawSendRequest = {
   readonly busId: string
   readonly can_id: number
   readonly data: string
@@ -111,6 +116,23 @@ export type TxSendRequest = {
   readonly is_rtr?: boolean
   readonly is_fd?: boolean
   readonly brs?: boolean
+}
+
+/** DBC pack TX (T13). Engine encodes with cantools; renderer never parses DBC. */
+export type TxDbcSendRequest = {
+  readonly busId: string
+  readonly message: string
+  readonly signals: Readonly<Record<string, SignalValue>>
+}
+
+export type TxSendRequest = TxRawSendRequest | TxDbcSendRequest
+
+export function isTxDbcSendRequest(request: TxSendRequest): request is TxDbcSendRequest {
+  return 'message' in request && typeof request.message === 'string' && request.message.length > 0
+}
+
+export function isTxRawSendRequest(request: TxSendRequest): request is TxRawSendRequest {
+  return 'can_id' in request && typeof request.can_id === 'number'
 }
 
 export type TxSendOk = {
@@ -137,8 +159,6 @@ export type TxCyclicStopOk = {
 export type TxCyclicStopResult = TxCyclicStopOk | BusCommandError
 
 export type FrameDir = 'rx' | 'tx'
-
-export type SignalValue = number | string | boolean
 
 /** DBC unpack attached by the engine. null when unknown / no DBC / decode failed. */
 export type FrameDecode = {
@@ -173,7 +193,7 @@ export type RxBatch = {
 
 /**
  * Narrow context-bridge API exposed as `window.vanillabus`.
- * Bus list/open/close, DBC load/clear, raw TX, and rx.batch go through
+ * Bus list/open/close, DBC load/clear, raw/DBC TX, and rx.batch go through
  * main → engine IPC. No SocketCAN or DBC parse in the renderer.
  */
 export type VanillaBusApi = {
@@ -346,6 +366,10 @@ export function parseRxBatch(raw: unknown): RxBatch | null {
   return { frames, dropped }
 }
 
+function parseOptionalFinite(raw: unknown): number | undefined {
+  return typeof raw === 'number' && Number.isFinite(raw) ? raw : undefined
+}
+
 export function parseDbcCatalog(raw: unknown): DbcCatalogMessage[] {
   if (!Array.isArray(raw)) {
     return []
@@ -374,7 +398,10 @@ export function parseDbcCatalog(raw: unknown): DbcCatalogMessage[] {
         }
         signals.push({
           name: sig.name,
-          unit: typeof sig.unit === 'string' ? sig.unit : ''
+          unit: typeof sig.unit === 'string' ? sig.unit : '',
+          min: parseOptionalFinite(sig.min),
+          max: parseOptionalFinite(sig.max),
+          initial: parseOptionalFinite(sig.initial)
         })
       }
     }

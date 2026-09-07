@@ -1,0 +1,29 @@
+{
+  "dbc": "fixtures/dbc/mux.dbc",
+  "vectors": [
+    {
+      "id": "mux0_coolant",
+      "message": "MuxStatus",
+      "signals": {
+        "MuxId": 0,
+        "Counter": 7,
+        "CoolantTemp": 25.0
+      },
+      "can_id": 512,
+      "is_eff": false,
+      "data": "008a020700000000"
+    },
+    {
+      "id": "mux1_pressure",
+      "message": "MuxStatus",
+      "signals": {
+        "MuxId": 1,
+        "Counter": 9,
+        "FuelPressure": 1234
+      },
+      "can_id": 512,
+      "is_eff": false,
+      "data": "01d2040900000000"
+    }
+  ]
+}

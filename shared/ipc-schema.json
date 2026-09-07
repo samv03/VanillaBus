@@ -374,19 +374,24 @@
           }
         },
         "tx.send": {
-          "description": "Send a single frame via the engine. Not implemented in T2.",
+          "description": "Send a single raw frame on an open busId. Engine-owned SocketCAN send. Echoes dir=tx onto rx.batch for Trace. DBC pack is T13.",
           "type": "object",
           "properties": {
             "direction": { "const": "request-response" },
             "request": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["can_id", "data"],
+              "required": ["busId", "can_id", "data"],
               "properties": {
+                "busId": { "type": "string", "description": "Open-bus id from bus.open." },
                 "can_id": { "type": "integer", "minimum": 0 },
-                "data": { "type": "string" },
+                "data": {
+                  "type": "string",
+                  "description": "Hex payload. Spaces/colons are stripped by the engine."
+                },
                 "dlc": { "type": "integer", "minimum": 0, "maximum": 64 },
                 "is_eff": { "type": "boolean" },
+                "is_rtr": { "type": "boolean" },
                 "is_fd": { "type": "boolean" },
                 "brs": { "type": "boolean" }
               }
@@ -402,20 +407,25 @@
           }
         },
         "tx.cyclic.start": {
-          "description": "Start a cyclic transmit job in the engine. Not implemented in T2.",
+          "description": "Start an engine-owned cyclic raw TX job. Stop with tx.cyclic.stop {job_id}. Period is interval ms; median interval should stay within ±10%.",
           "type": "object",
           "properties": {
             "direction": { "const": "request-response" },
             "request": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["can_id", "data", "period_ms"],
+              "required": ["busId", "can_id", "data", "period_ms"],
               "properties": {
+                "busId": { "type": "string", "description": "Open-bus id from bus.open." },
                 "can_id": { "type": "integer", "minimum": 0 },
-                "data": { "type": "string" },
+                "data": {
+                  "type": "string",
+                  "description": "Hex payload. Spaces/colons are stripped by the engine."
+                },
                 "period_ms": { "type": "integer", "minimum": 1 },
                 "dlc": { "type": "integer", "minimum": 0, "maximum": 64 },
                 "is_eff": { "type": "boolean" },
+                "is_rtr": { "type": "boolean" },
                 "is_fd": { "type": "boolean" },
                 "brs": { "type": "boolean" }
               }
@@ -431,7 +441,7 @@
           }
         },
         "tx.cyclic.stop": {
-          "description": "Stop a cyclic transmit job. Not implemented in T2.",
+          "description": "Stop an engine-owned cyclic TX job by job_id. bus.close also stops jobs for that busId.",
           "type": "object",
           "properties": {
             "direction": { "const": "request-response" },

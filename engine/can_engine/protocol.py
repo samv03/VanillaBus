@@ -72,3 +72,15 @@ def dbc_load_message(
 
 def dbc_clear_message(msg_id: str | None = None) -> dict[str, Any]:
     return envelope("dbc.clear", {"ok": True}, msg_id)
+
+
+def tx_send_message(msg_id: str | None = None) -> dict[str, Any]:
+    return envelope("tx.send", {"ok": True}, msg_id)
+
+
+def tx_cyclic_start_message(job_id: str, msg_id: str | None = None) -> dict[str, Any]:
+    return envelope("tx.cyclic.start", {"job_id": job_id}, msg_id)
+
+
+def tx_cyclic_stop_message(msg_id: str | None = None) -> dict[str, Any]:
+    return envelope("tx.cyclic.stop", {"ok": True}, msg_id)

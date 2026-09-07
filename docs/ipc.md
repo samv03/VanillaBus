@@ -38,16 +38,16 @@ T3+ maps status and bus commands onto `window.vanillabus` (see
 | `rx.batch` | engine event | `{ "frames": [FrameEvent, …], "dropped": <int> }` — after `bus.open`, ≤16 ms or ≤500 frames. `rate_ms` is last inter-arrival ms, or `null` on the first sample per `(busId, can_id, is_eff)`. Known IDs may include `decode: { name, signals }` when a DBC is bound. |
 | `dbc.load` | request `{ "busId", "path" }` → `{ "ok": true, "message_count", "catalog"? }` | One DBC per open busId, loaded with cantools. Optional `catalog` lists message/signal names for the Graph picker. Path must resolve under the project/fixtures allowlist. Failures: `engine.error` (`path_not_allowed`, `dbc_not_found`, `dbc_invalid`, `bus_not_found`). |
 | `dbc.clear` | request `{ "busId" }` → `{ "ok": true }` | Unload the DBC for that bus. Idempotent if none is loaded. |
+| `tx.send` | request `{ "busId", "can_id", "data", "is_eff?", "is_rtr?", "is_fd?", "brs?", "dlc?" }` → `{ "ok": true }` | One-shot raw TX on an open bus. Hex `data` may include spaces. Failures: `engine.error` (`bus_not_found`, `invalid_payload`, `tx_failed`). Echoes a FrameEvent with `dir=tx` onto `rx.batch` so Trace can show TX (SocketCAN recv-own-msgs stays off). |
+| `tx.cyclic.start` | request `{ "busId", "can_id", "data", "period_ms", … }` → `{ "job_id" }` | Engine-owned periodic raw TX. `period_ms` ≥ 1. Missed ticks are skipped (stretch) instead of bursting. |
+| `tx.cyclic.stop` | request `{ "job_id" }` → `{ "ok": true }` | Stop one cyclic job. Unknown id → `job_not_found`. `bus.close` stops every job on that busId. |
 
 Unknown request types get `engine.error` with `code: "not_implemented"`.
+DBC pack/encode for TX is T13 — T12 is raw bytes only.
 
 See [docs/privileges.md](privileges.md) for pre-UP / no-root rules.
 
-## Reserved (schema only; no TX runtime in T7)
-
-`tx.send` · `tx.cyclic.start` · `tx.cyclic.stop`
-
-## FrameEvent (`rx.batch` / later `tx.*`)
+## FrameEvent (`rx.batch` / TX echo)
 
 `busId`, `ifName`, `can_id`, `data` (hex, no spaces), `dlc`, `is_eff`, `is_fd`,
 `brs`, `is_rtr`, `is_err`, `dir` (`rx`\|`tx`), `ts_us` (integer microseconds,

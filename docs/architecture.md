@@ -7,7 +7,7 @@ VanillaBus is a SocketCAN-first desktop bus monitor.
 │ Electron desktop (npm run dev)              │
 │  main  → window + engine spawn / restart    │
 │  preload → window.vanillabus (typed)        │
-│  renderer → shell + Trace + uPlot Graph     │
+│  renderer → shell + Trace + Graph + Transmit│
 └──────────────────┬──────────────────────────┘
                    │ UDS: 4-byte BE length + JSON
                    │ (see docs/ipc.md)
@@ -24,20 +24,23 @@ VanillaBus is a SocketCAN-first desktop bus monitor.
   (`#trace`, `#graph`, `#transmit`). Switching tabs does not respawn the
   engine. Trace is a virtualized table (react-virtuoso) over a 20_000-frame
   drop-oldest ring. Graph is a uPlot live plot over the same `rx.batch`
-  decode stream (independent pause, 10–30 Hz UI decimation). The renderer
-  must not talk to SocketCAN or parse DBC.
+  decode stream (independent pause, 10–30 Hz UI decimation). Transmit is
+  raw one-shot + cyclic TX (T12) with a DBC-pack placeholder for T13. The
+  renderer must not talk to SocketCAN or parse DBC.
 - **Main** owns the window, the Unix-socket path, and a **minimal** engine
   supervisor (spawn, log disconnect, respawn, request/response). Full
   hardening is later (T16).
 - **Preload** exposes `window.vanillabus`: engine status plus `listBuses` /
-  `openBus` / `closeBus` / `loadDbc` / `clearDbc` / `onRxBatch`. No raw
-  sockets or SocketCAN handles. Types live in `shared/engine.ts`.
-- **ipc-bridge** (main) maps supervisor host events, bus/DBC RPCs, and
+  `openBus` / `closeBus` / `loadDbc` / `clearDbc` / `sendFrame` /
+  `startCyclic` / `stopCyclic` / `onRxBatch`. No raw sockets or SocketCAN
+  handles. Types live in `shared/engine.ts`.
+- **ipc-bridge** (main) maps supervisor host events, bus/DBC/TX RPCs, and
   `rx.batch` onto those preload channels.
 - **Engine** is a Python package. All bus I/O and DBC unpack belong here
   (python-can + cantools). After `bus.open` a recv thread batches frames onto
-  IPC. `dbc.load` binds one DBC per busId. Interfaces must already be UP; see
-  [privileges.md](privileges.md).
+  IPC. `tx.send` / `tx.cyclic.*` are engine-owned SocketCAN sends; successful
+  TX is echoed with `dir=tx` onto the RX queue. `dbc.load` binds one DBC per
+  busId. Interfaces must already be UP; see [privileges.md](privileges.md).
 
 ## T9 vs later
 
@@ -47,8 +50,9 @@ stub with a production virtualized Trace (`react-virtuoso`): filter, pause,
 clear, scroll lock, expandable DBC signals, and a 20_000-frame drop-oldest
 ring. T10 is the M1 exit smoke: one bus, fixture DBC, `rate_ms`, and the N2
 <50 ms first-paint gate (`npm run test:smoke`). Graph is T11 (uPlot + DBC
-signal picker). Transmit is a T12/T13 placeholder. T4–T7 bus/RX/`rate_ms`/DBC unpack stay as
-they are. The engine does not bring interfaces up or set bitrate via
+signal picker). Transmit T12 is raw one-shot + cyclic TX (DBC pack is T13).
+T4–T7 bus/RX/`rate_ms`/DBC unpack stay as they are. The engine does not bring
+interfaces up or set bitrate via
 `CAP_NET_ADMIN`. See [smoke.md](smoke.md) for the Xvfb/headless CI path.
 
 Layout (T8): top tabs, not a left rail. Theme is dark engineering

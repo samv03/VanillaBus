@@ -9,7 +9,8 @@ the engine. T9 replaces the T5 RX stub with a **virtualized Trace**
 signals, and a bounded 20_000-frame drop-oldest ring. Graph is a live
 **uPlot** signal plot (T11): DBC picker, 10s/30s/60s window, independent
 Pause, UI-side 10–30 Hz decimation, and a memory-bounded sample window.
-Transmit is still a placeholder (T12–T13).
+Transmit T12 is **raw one-shot + cyclic TX** (amber Send / client-side Tx
+footer). DBC pack/encode is a T13 placeholder column.
 
 After `bus.open`, `vanillabus-engine` recv()s on that python-can bus and
 emits `rx.batch` (≤16 ms or ≤500 frames). T6 fills `rate_ms` as the last
@@ -114,6 +115,9 @@ npm run test:dbc-bridge               # parseFrameEvent decode + supervisor load
 npm run test:shell                    # T8 hash tabs — plain node, no tsx / --test
 npm run test:trace                    # T9 ring / filter / N2 first-paint (tsx)
 npm run test:graph                    # T11 decimation / pause / window (tsx)
+npm run test:tx                       # T12 raw TX + cyclic ±10% (SKIP live if no vcan)
+# or: python3 scripts/test-tx.py
+npm run test:tx-bridge                # T12 hex/period helpers + supervisor TX (tsx)
 npm run test:smoke                    # T10 M1 Trace+DBC+rate + N2 (tsx)
 # or: npm run test:m1                 # test:smoke + Electron/Xvfb stub
 ```
@@ -139,6 +143,14 @@ append), and drop-oldest window capacity. Mux frames only contribute
 signals present on `decode.signals`. If `vcan0` is UP it also loads
 `sample.dbc`, injects EngineStatus, and asserts live Graph samples. If
 not, it prints `SKIP vcan0 graph` and still exits 0.
+
+`test-tx.py` (`npm run test:tx`) always checks TX payload schema, cyclic
+deadline math (skip-missed-tick / stretch), RecordingBus one-shot echo
+(`dir=tx`), and a 50 ms cyclic job whose median interval is within
+**±10%**. If `vcan0` is UP it also opens the iface, `tx.send`s `0x5A1`,
+asserts a peer python-can/`candump` recv, checks `rx.batch` for the TX id,
+and measures a 100 ms cyclic job to ±10%. If not, it prints
+`SKIP vcan0 TX inject` and still exits 0.
 
 `test-rx-batch.py` always checks FrameEvent mapping, drop-oldest, and ≤500
 batching (no host CAN required). If `vcan0` is UP it opens the iface, injects
@@ -251,6 +263,19 @@ within ~100–200 ms. Known IDs show the DBC message name; expand the row for
 signal name / value / unit. Unknown IDs stay raw. The UI ring holds at most
 **20_000** frames and drops the oldest.
 
+## Transmit (verify TX)
+
+```bash
+sudo ./scripts/setup-vcan.sh
+# in the app: Connect vcan0 → Transmit tab → Send 0x7E0
+candump vcan0
+```
+
+The wire frame should appear on the peer. Trace shows a `dir=tx` echo for
+the same ID. Cyclic **Start** / **Stop** is owned by the engine (period ms,
+median within ±10% on a quiet host; stretch is documented if the scheduler
+overruns). DBC pack is T13.
+
 ## Helper scripts
 
 ```bash
@@ -263,10 +288,10 @@ sudo ./scripts/setup-vcan.sh          # vcan0 UP for bus.open + RX
 ```
 package.json
 electron/main/          # window + engine spawn / UDS client + ipc-bridge
-electron/preload/       # window.vanillabus (status + bus + DBC + onRxBatch)
-electron/renderer/      # React shell + virtualized Trace + uPlot Graph
+electron/preload/       # window.vanillabus (status + bus + DBC + TX + onRxBatch)
+electron/renderer/      # React shell + Trace + Graph + Transmit
 engine/pyproject.toml   # vanillabus-engine (python-can + cantools)
-engine/can_engine/      # framing server + SocketCAN + RX pump + DBC unpack
+engine/can_engine/      # framing server + SocketCAN + RX/TX + DBC unpack
 shared/engine.ts        # renderer/host types
 shared/appTabs.ts       # typed re-export of Trace | Graph | Transmit helpers
 shared/appTabs.mjs      # same helpers for plain `node` (no tsx / --test)

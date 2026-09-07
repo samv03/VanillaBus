@@ -9,6 +9,7 @@ import { AppShell } from './shell/AppShell'
 import { SharedHeader } from './shell/SharedHeader'
 import { type BusActionStatus, type OpenedBus } from './shell/types'
 import { useTraceModel } from './trace/useTraceModel'
+import { useTransmitModel } from './transmit/useTransmitModel'
 
 const SAMPLE_DBC = 'fixtures/dbc/sample.dbc'
 
@@ -29,6 +30,7 @@ export function App(): ReactElement {
   const [connecting, setConnecting] = useState(false)
   const trace = useTraceModel()
   const graph = useGraphModel()
+  const transmit = useTransmitModel(api)
 
   useEffect(() => {
     const onHashChange = (): void => {
@@ -52,12 +54,13 @@ export function App(): ReactElement {
     const offRx = api.onRxBatch((batch) => {
       trace.appendBatch(batch)
       graph.appendBatch(batch)
+      transmit.noteBatch(batch)
     })
     return () => {
       offStatus()
       offRx()
     }
-  }, [api, graph.appendBatch, trace.appendBatch])
+  }, [api, graph.appendBatch, trace.appendBatch, transmit.noteBatch])
 
   useEffect(() => {
     if (!info.connected) {
@@ -65,6 +68,7 @@ export function App(): ReactElement {
       setOpened([])
       trace.reset()
       graph.reset()
+      transmit.reset()
     }
   }, [info.connected])
 
@@ -152,6 +156,7 @@ export function App(): ReactElement {
       return
     }
     setOpened((previous) => previous.filter((item) => item.busId !== busId))
+    transmit.markBusClosed(busId)
     setBusStatus({ kind: 'ok', text: `Closed ${busId}` })
   }
 
@@ -220,7 +225,14 @@ export function App(): ReactElement {
     >
       {tab === 'trace' ? <TraceScreen model={trace} /> : null}
       {tab === 'graph' ? <GraphScreen model={graph} /> : null}
-      {tab === 'transmit' ? <TransmitScreen /> : null}
+      {tab === 'transmit' ? (
+        <TransmitScreen
+          model={transmit}
+          opened={opened}
+          selectedBus={selectedBus}
+          engineConnected={connected}
+        />
+      ) : null}
     </AppShell>
   )
 }

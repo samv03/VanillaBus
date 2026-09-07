@@ -21,6 +21,9 @@ window.vanillabus = {
   closeBus(busId): Promise<BusCloseResult>
   loadDbc(busId, path): Promise<DbcLoadResult>
   clearDbc(busId): Promise<DbcClearResult>
+  sendFrame(request): Promise<TxSendResult>
+  startCyclic(request): Promise<TxCyclicStartResult>
+  stopCyclic(jobId): Promise<TxCyclicStopResult>
   onRxBatch(listener): Unsubscribe       // { frames, dropped }
 }
 ```
@@ -63,6 +66,9 @@ from `rx.batch` in an expandable row.
 | `vanillabus:bus-close` | invoke | `BusCloseResult` |
 | `vanillabus:dbc-load` | invoke | `DbcLoadResult` |
 | `vanillabus:dbc-clear` | invoke | `DbcClearResult` |
+| `vanillabus:tx-send` | invoke | `TxSendResult` |
+| `vanillabus:tx-cyclic-start` | invoke | `TxCyclicStartResult` |
+| `vanillabus:tx-cyclic-stop` | invoke | `TxCyclicStopResult` |
 | `vanillabus:rx-batch` | event | `RxBatch` (`frames`, `dropped`) |
 
 T2 engine IPC (`engine.hello`, `engine.heartbeat`, respawn) is unchanged.
@@ -118,6 +124,20 @@ Rate median: `npm run test:rate`.
 4. Inject an unknown ID (`cansend vcan0 7FF#DEADBEEF`) — the row stays raw.
 
 Automated: `npm run test:dbc` and `npm run test:dbc-bridge`.
+
+## Raw transmit (T12)
+
+1. Connect vcan0 as above. Open the **Transmit** tab.
+2. Raw send: ID `0x7E0`, data hex, **Send** (single-shot) or **Start** (cyclic, period ms).
+3. Active cyclic jobs lists engine-owned jobs; **Stop** ends one by `job_id`.
+4. The client-side footer shows Tx count / Errors / Last Tx (no Bus Load %).
+5. Switch to Trace — the TX echo (`dir=tx`) should appear for that ID. A peer
+   `candump vcan0` / python-can recv also sees the wire frame.
+
+DBC pack (signal encode) is a T13 placeholder column.
+
+Automated: `npm run test:tx` (schema + cyclic timer math + optional live vcan)
+and `npm run test:tx-bridge`.
 
 ## Graph (T11)
 

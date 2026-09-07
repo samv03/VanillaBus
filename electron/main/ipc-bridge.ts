@@ -10,7 +10,12 @@ import {
   type EngineErrorPayload,
   type EngineInfo,
   type EngineStatus,
-  type RxBatch
+  type RxBatch,
+  type TxCyclicStartRequest,
+  type TxCyclicStartResult,
+  type TxCyclicStopResult,
+  type TxSendRequest,
+  type TxSendResult
 } from '../../shared/engine'
 import { EngineRequestError } from './engineClient'
 import type { EngineSupervisor } from './engineSupervisor'
@@ -24,8 +29,58 @@ export const VANILLABUS_IPC = {
   busClose: 'vanillabus:bus-close',
   dbcLoad: 'vanillabus:dbc-load',
   dbcClear: 'vanillabus:dbc-clear',
+  txSend: 'vanillabus:tx-send',
+  txCyclicStart: 'vanillabus:tx-cyclic-start',
+  txCyclicStop: 'vanillabus:tx-cyclic-stop',
   rxBatch: 'vanillabus:rx-batch'
 } as const
+
+function parseOptionalBool(value: unknown): boolean | undefined {
+  return typeof value === 'boolean' ? value : undefined
+}
+
+function parseTxSendRequest(
+  raw: unknown
+): { ok: true; request: TxSendRequest } | { ok: false; error: EngineErrorPayload } {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { ok: false, error: { code: 'invalid_payload', message: 'sendFrame requires an object' } }
+  }
+  const record = raw as Record<string, unknown>
+  if (typeof record.busId !== 'string' || record.busId.length === 0) {
+    return { ok: false, error: { code: 'invalid_payload', message: 'sendFrame requires busId' } }
+  }
+  if (typeof record.can_id !== 'number' || !Number.isInteger(record.can_id) || record.can_id < 0) {
+    return { ok: false, error: { code: 'invalid_payload', message: 'sendFrame requires integer can_id' } }
+  }
+  if (typeof record.data !== 'string') {
+    return { ok: false, error: { code: 'invalid_payload', message: 'sendFrame requires data hex' } }
+  }
+  const request: TxSendRequest = {
+    busId: record.busId,
+    can_id: record.can_id,
+    data: record.data,
+    dlc: typeof record.dlc === 'number' && Number.isInteger(record.dlc) ? record.dlc : undefined,
+    is_eff: parseOptionalBool(record.is_eff),
+    is_rtr: parseOptionalBool(record.is_rtr),
+    is_fd: parseOptionalBool(record.is_fd),
+    brs: parseOptionalBool(record.brs)
+  }
+  return { ok: true, request }
+}
+
+function parseTxCyclicStartRequest(
+  raw: unknown
+): { ok: true; request: TxCyclicStartRequest } | { ok: false; error: EngineErrorPayload } {
+  const parsed = parseTxSendRequest(raw)
+  if (!parsed.ok) {
+    return parsed
+  }
+  const record = raw as Record<string, unknown>
+  if (typeof record.period_ms !== 'number' || !Number.isInteger(record.period_ms) || record.period_ms < 1) {
+    return { ok: false, error: { code: 'invalid_payload', message: 'startCyclic requires period_ms >= 1' } }
+  }
+  return { ok: true, request: { ...parsed.request, period_ms: record.period_ms } }
+}
 
 function asError(error: unknown): EngineErrorPayload {
   if (error instanceof EngineRequestError) {
@@ -115,6 +170,50 @@ export function registerIpcBridge(supervisor: EngineSupervisor): void {
       }
       try {
         return await supervisor.clearDbc(busId)
+      } catch (error) {
+        return { ok: false, error: asError(error) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    VANILLABUS_IPC.txSend,
+    async (_event, request: unknown): Promise<TxSendResult> => {
+      const parsed = parseTxSendRequest(request)
+      if (!parsed.ok) {
+        return parsed
+      }
+      try {
+        return await supervisor.sendFrame(parsed.request)
+      } catch (error) {
+        return { ok: false, error: asError(error) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    VANILLABUS_IPC.txCyclicStart,
+    async (_event, request: unknown): Promise<TxCyclicStartResult> => {
+      const parsed = parseTxCyclicStartRequest(request)
+      if (!parsed.ok) {
+        return parsed
+      }
+      try {
+        return await supervisor.startCyclic(parsed.request)
+      } catch (error) {
+        return { ok: false, error: asError(error) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    VANILLABUS_IPC.txCyclicStop,
+    async (_event, jobId: unknown): Promise<TxCyclicStopResult> => {
+      if (typeof jobId !== 'string' || jobId.length === 0) {
+        return { ok: false, error: { code: 'invalid_payload', message: 'stopCyclic requires a job_id' } }
+      }
+      try {
+        return await supervisor.stopCyclic(jobId)
       } catch (error) {
         return { ok: false, error: asError(error) }
       }

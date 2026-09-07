@@ -7,9 +7,10 @@ JSON. After `bus.open` a recv thread emits `rx.batch` (≤16 ms or ≤500
 frames). T6 fills `rate_ms` as the last inter-arrival (`(Δts_us)/1000`) per
 `(busId, can_id, is_eff)`. T7 loads one DBC per busId (`dbc.load` /
 `dbc.clear`) via **cantools** and attaches `decode` (`name`, `signals`,
-`units`) on known RX frames. Unknown IDs stay raw. Close clears that
-busId's rate and DBC state. The desktop Trace (T9) virtualizes those
-batches; the engine still only emits `rx.batch`.
+`units`) on known RX frames. Unknown IDs stay raw. T12 adds `tx.send` and
+engine-owned `tx.cyclic.start` / `tx.cyclic.stop`; successful TX is echoed
+with `dir=tx` onto `rx.batch`. Close clears that busId's rate, DBC, and
+cyclic jobs. DBC pack/encode is T13.
 
 The engine binds an iface only if it already exists and is UP. It never
 `ip link set up`. See [docs/privileges.md](../docs/privileges.md).
@@ -39,6 +40,7 @@ python3 scripts/test-bus-open.py
 python3 scripts/test-rx-batch.py
 python3 scripts/test-rate-ms.py
 python3 scripts/test-dbc-unpack.py
+python3 scripts/test-tx.py
 ```
 
 The M1 desktop smoke (`npm run test:smoke` from the repo root) also spawns

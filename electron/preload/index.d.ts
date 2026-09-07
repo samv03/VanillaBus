@@ -19,6 +19,11 @@ export type {
   FrameDir,
   FrameEvent,
   RxBatch,
+  TxCyclicStartRequest,
+  TxCyclicStartResult,
+  TxCyclicStopResult,
+  TxSendRequest,
+  TxSendResult,
   Unsubscribe,
   VanillaBusApi
 } from '../../shared/engine'

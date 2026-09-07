@@ -22,6 +22,8 @@ export type {
   TxCyclicStartRequest,
   TxCyclicStartResult,
   TxCyclicStopResult,
+  TxDbcSendRequest,
+  TxRawSendRequest,
   TxSendRequest,
   TxSendResult,
   Unsubscribe,

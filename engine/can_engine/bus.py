@@ -13,7 +13,7 @@ from typing import Any
 
 import threading
 
-from can_engine.dbc import DbcError, DbcStore
+from can_engine.dbc import DbcError, DbcStore, pack_frame
 from can_engine.rate import RateTracker
 from can_engine.rx import RX_BATCH_MAX_FRAMES, RxPump, message_to_frame
 from can_engine.tx import CyclicScheduler, TxError, TxSpec, build_can_message, parse_period_ms, parse_tx_spec
@@ -222,18 +222,39 @@ class BusManager:
         return frames, dropped
 
     def send(self, payload: object) -> dict[str, Any]:
-        """One-shot raw TX. Echoes dir=tx onto the RX queue for Trace."""
-        spec = parse_tx_spec(payload)
+        """One-shot raw or DBC-packed TX. Echoes dir=tx onto the RX queue for Trace."""
+        spec = self._resolve_tx_spec(payload)
         self._send_spec(spec)
         return {"ok": True}
 
     def start_cyclic(self, payload: object) -> dict[str, Any]:
-        spec = parse_tx_spec(payload)
+        spec = self._resolve_tx_spec(payload)
         period_ms = parse_period_ms(payload.get("period_ms") if isinstance(payload, dict) else None)
         if spec.bus_id not in self._buses:
             raise TxError("bus_not_found", f"no open bus with busId {spec.bus_id}")
         job_id = self._cyclic.start(spec, period_ms, self._send_spec)
         return {"job_id": job_id}
+
+    def _resolve_tx_spec(self, payload: object) -> TxSpec:
+        """Raw {can_id, data} or DBC {message, signals} packed once via cantools."""
+        if isinstance(payload, dict) and isinstance(payload.get("message"), str) and payload["message"].strip():
+            bus_id = payload.get("busId")
+            if not isinstance(bus_id, str) or not bus_id:
+                raise TxError("invalid_payload", "tx requires payload.busId")
+            if bus_id not in self._buses:
+                raise TxError("bus_not_found", f"no open bus with busId {bus_id}")
+            packed = pack_frame(self._dbc.get(bus_id), payload.get("message"), payload.get("signals"))
+            return TxSpec(
+                bus_id=bus_id,
+                can_id=int(packed["can_id"]),
+                data=bytes.fromhex(str(packed["data"])),
+                dlc=int(packed["dlc"]),
+                is_eff=bool(packed["is_eff"]),
+                is_fd=False,
+                brs=False,
+                is_rtr=False,
+            )
+        return parse_tx_spec(payload)
 
     def stop_cyclic(self, payload: object) -> dict[str, Any]:
         if not isinstance(payload, dict):

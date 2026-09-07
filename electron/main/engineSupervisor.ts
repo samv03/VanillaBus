@@ -11,6 +11,7 @@ import {
   type EngineHello,
   type EngineStatus,
   type RxBatch,
+  isTxDbcSendRequest,
   type TxCyclicStartOk,
   type TxCyclicStartRequest,
   type TxCyclicStopOk,
@@ -331,6 +332,13 @@ export class EngineSupervisor {
 }
 
 function txPayload(request: TxSendRequest): Record<string, unknown> {
+  if (isTxDbcSendRequest(request)) {
+    return {
+      busId: request.busId,
+      message: request.message,
+      signals: { ...request.signals }
+    }
+  }
   const payload: Record<string, unknown> = {
     busId: request.busId,
     can_id: request.can_id,

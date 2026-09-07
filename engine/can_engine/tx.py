@@ -1,9 +1,11 @@
-"""Raw TX (T12): one-shot send + engine-owned cyclic jobs.
+"""Raw + DBC TX (T12/T13): one-shot send + engine-owned cyclic jobs.
 
-DBC pack/encode is T13 — this module only transmits raw bytes. After a
-successful send the engine echoes a FrameEvent with dir=tx onto the RX
-queue so Trace can show TX without relying on SocketCAN recv-own-msgs
-(off by default). On vcan, a peer/candump still sees the wire frame.
+Raw payloads carry can_id + hex data. DBC pack payloads carry message +
+signals; BusManager packs via cantools then sends the same raw path.
+After a successful send the engine echoes a FrameEvent with dir=tx onto
+the RX queue so Trace can show TX without relying on SocketCAN
+recv-own-msgs (off by default). On vcan, a peer/candump still sees the
+wire frame.
 
 Cyclic jobs are owned here (one thread per job). Deadlines use a monotonic
 clock. If a send overruns the period, missed ticks are skipped (stretch)

@@ -135,7 +135,9 @@ export function App(): ReactElement {
     }
     setOpened((previous) =>
       previous.map((item) =>
-        item.busId === busId ? { ...item, dbc: { path, messageCount: result.message_count } } : item
+        item.busId === busId
+          ? { ...item, dbc: { path, messageCount: result.message_count, catalog: result.catalog } }
+          : item
       )
     )
     setDbcPath(path)

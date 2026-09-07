@@ -1187,9 +1187,30 @@ tr:last-child td {
   font-size: 0.78rem;
 }
 
+.tx-dbc-banner-ok {
+  border-style: solid;
+  color: var(--ok);
+  border-color: var(--ok-border);
+  background: var(--ok-bg);
+}
+
 .tx-dbc-table-wrap {
   margin: 0 0 0.75rem;
-  opacity: 0.72;
+}
+
+.tx-dbc-table-wrap input.tx-dbc-value {
+  width: 100%;
+  min-width: 4.5rem;
+  font-size: 0.8rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  padding: 0.2rem 0.35rem;
+}
+
+.tx-dbc-period input {
+  width: 6rem;
 }
 
 .tx-jobs-wrap {

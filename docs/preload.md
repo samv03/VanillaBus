@@ -48,8 +48,10 @@ throw through the renderer. Engine codes include `iface_not_found`,
 the DBC message/signal list for the Graph picker (empty if omitted).
 Engine codes include `path_not_allowed`, `dbc_not_found`, `dbc_invalid`,
 and `bus_not_found`. The renderer forwards a repo-relative fixture path;
-cantools runs in the engine. Graph never invents mux branches — it only
-plots numeric values present on `decode.signals`.
+cantools runs in the engine. Catalog entries may include optional
+`min` / `max` / `initial` for the Transmit DBC pack column. Graph never
+invents mux branches — it only plots numeric values present on
+`decode.signals`.
 
 The renderer never receives Unix-socket frames, SocketCAN handles, or DBC
 objects. Trace displays `decode.name` / `decode.signals` / `decode.units`
@@ -134,10 +136,13 @@ Automated: `npm run test:dbc` and `npm run test:dbc-bridge`.
 5. Switch to Trace — the TX echo (`dir=tx`) should appear for that ID. A peer
    `candump vcan0` / python-can recv also sees the wire frame.
 
-DBC pack (signal encode) is a T13 placeholder column.
+DBC pack: pick a catalog message, edit physical signal values, **Send**
+or **Start cyclic**. The engine encodes with cantools (unknown message /
+pack failure → `engine.error`). Active jobs lists both Raw and DBC rows.
 
-Automated: `npm run test:tx` (schema + cyclic timer math + optional live vcan)
-and `npm run test:tx-bridge`.
+Automated: `npm run test:tx` (T12 raw + cyclic), `npm run test:tx-dbc`
+(golden pack + cyclic DBC ±10%; SKIP live if no vcan), and
+`npm run test:tx-bridge`.
 
 ## Graph (T11)
 

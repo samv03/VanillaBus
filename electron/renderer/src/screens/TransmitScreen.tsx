@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
+import type { DbcCatalogMessage } from '../../../../shared/engine'
 import { parseCanIdHex, parseDataHex } from '../../../../shared/txFormat'
 import type { OpenedBus } from '../shell/types'
 import { CyclicJobsTable } from '../transmit/CyclicJobsTable'
-import { DbcPackPlaceholder } from '../transmit/DbcPackPlaceholder'
+import { DbcPackPanel, parseSignalValues } from '../transmit/DbcPackPanel'
 import { RawSendPanel } from '../transmit/RawSendPanel'
 import { TransmitFooter } from '../transmit/TransmitFooter'
 import type { RawSendDraft, TransmitModel } from '../transmit/useTransmitModel'
@@ -22,6 +23,8 @@ export function TransmitScreen({
 }: TransmitScreenProps): ReactElement {
   const [sending, setSending] = useState(false)
   const [starting, setStarting] = useState(false)
+  const [dbcSending, setDbcSending] = useState(false)
+  const [dbcStarting, setDbcStarting] = useState(false)
 
   useEffect(() => {
     model.syncSelectedBus(selectedBus)
@@ -32,8 +35,12 @@ export function TransmitScreen({
     [model.draft.busName, opened]
   )
 
+  const catalog = target?.dbc?.catalog ?? []
   const canStopRaw = model.jobs.some(
     (job) => job.jobId === model.lastRawJobId && job.status === 'Running'
+  )
+  const canStopDbc = model.jobs.some(
+    (job) => job.jobId === model.lastDbcJobId && job.status === 'Running'
   )
 
   async function handleSend(): Promise<void> {
@@ -73,6 +80,44 @@ export function TransmitScreen({
     }
   }
 
+  async function handleDbcSend(): Promise<void> {
+    const packed = buildDbcRequest(model, target?.busId, catalog)
+    if (!packed) {
+      return
+    }
+    setDbcSending(true)
+    try {
+      await model.sendOnce(packed.request)
+    } finally {
+      setDbcSending(false)
+    }
+  }
+
+  async function handleDbcStart(): Promise<void> {
+    const packed = buildDbcRequest(model, target?.busId, catalog)
+    if (!packed || !target) {
+      return
+    }
+    setDbcStarting(true)
+    try {
+      await model.startCyclic(
+        { ...packed.request, period_ms: model.dbcDraft.periodMs },
+        {
+          type: 'DBC',
+          busId: target.busId,
+          ifName: target.name,
+          canId: packed.canId,
+          isEff: packed.isEff,
+          data: '',
+          message: packed.request.message,
+          periodMs: model.dbcDraft.periodMs
+        }
+      )
+    } finally {
+      setDbcStarting(false)
+    }
+  }
+
   return (
     <div className="tx-screen">
       <div className="tx-columns">
@@ -88,7 +133,19 @@ export function TransmitScreen({
           onStart={() => void handleStart()}
           onStop={() => void model.stopLastRaw()}
         />
-        <DbcPackPlaceholder />
+        <DbcPackPanel
+          draft={model.dbcDraft}
+          onChange={model.setDbcDraft}
+          catalog={catalog}
+          dbcLoaded={target?.dbc !== null && target?.dbc !== undefined}
+          ready={engineConnected && target !== undefined && target.dbc !== null}
+          sending={dbcSending}
+          starting={dbcStarting}
+          canStop={canStopDbc}
+          onSend={() => void handleDbcSend()}
+          onStart={() => void handleDbcStart()}
+          onStop={() => void model.stopLastDbc()}
+        />
         <CyclicJobsTable jobs={model.jobs} onStop={(jobId) => void model.stopJob(jobId)} />
       </div>
       <TransmitFooter stats={model.stats} />
@@ -112,5 +169,21 @@ function buildRequest(draft: RawSendDraft, busId: string | undefined) {
     is_eff: draft.isEff || id.isEffHint,
     is_rtr: draft.isRtr,
     is_fd: draft.isFd
+  }
+}
+
+function buildDbcRequest(model: TransmitModel, busId: string | undefined, catalog: readonly DbcCatalogMessage[]) {
+  if (!busId) {
+    return null
+  }
+  const message = catalog.find((item) => item.name === model.dbcDraft.message)
+  const signals = parseSignalValues(message, model.dbcDraft.values)
+  if (!message || !signals) {
+    return null
+  }
+  return {
+    request: { busId, message: message.name, signals },
+    canId: message.can_id,
+    isEff: message.can_id > 0x7ff
   }
 }

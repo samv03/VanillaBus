@@ -88,6 +88,23 @@ if [[ -d /sys/class/net ]]; then
   note "can/vcan ifaces" "$can_ifaces"
 fi
 
+for mod in peak_usb kvaser_usb ix_usb_can; do
+  if modinfo "$mod" >/dev/null 2>&1; then
+    note "$mod" "modinfo ok"
+  else
+    note "$mod" "not found (IXXAT is OOT/DKMS on 22.04/24.04)"
+  fi
+done
+
+if [[ -f /etc/modprobe.d/blacklist-peak.conf ]] || [[ -f /etc/modprobe.d/pcan.conf ]]; then
+  echo "  warning: Peak SDK blacklist present — see docs/socketcan-vendors.md"
+  warn=1
+fi
+if [[ -f /etc/modprobe.d/kvaser.conf ]] && grep -q '^[[:space:]]*blacklist[[:space:]]\+kvaser_' /etc/modprobe.d/kvaser.conf 2>/dev/null; then
+  echo "  warning: Kvaser LinuxCAN blacklist present — see docs/socketcan-vendors.md"
+  warn=1
+fi
+
 echo
 if [[ "$ok" -ne 0 ]]; then
   echo "Host is missing required Node/Python tools."

@@ -43,8 +43,15 @@ def error_message(code: str, message: str, msg_id: str | None = None) -> dict[st
     return envelope("engine.error", {"code": code, "message": message}, msg_id)
 
 
-def bus_list_message(interfaces: list[dict[str, Any]], msg_id: str | None = None) -> dict[str, Any]:
-    return envelope("bus.list", {"interfaces": interfaces}, msg_id)
+def bus_list_message(
+    interfaces: list[dict[str, Any]],
+    msg_id: str | None = None,
+    warnings: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {"interfaces": interfaces}
+    if warnings:
+        payload["warnings"] = warnings
+    return envelope("bus.list", payload, msg_id)
 
 
 def bus_open_message(bus_id: str, msg_id: str | None = None) -> dict[str, Any]:

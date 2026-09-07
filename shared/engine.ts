@@ -46,16 +46,30 @@ export type EngineErrorPayload = {
 
 export type BusInterfaceState = 'up' | 'down'
 
-/** SocketCAN/vcan iface from engine bus.list. */
+/** Optional host-level Peak/Kvaser SDK blacklist hit from bus.list. */
+export type BusListWarning = {
+  readonly vendor: string
+  readonly module: string
+  readonly source: string
+  readonly message: string
+}
+
+/** SocketCAN/vcan iface from engine bus.list. Extra T15 fields are optional. */
 export type BusInterface = {
   readonly name: string
   readonly kind: string
   readonly state: BusInterfaceState
+  readonly driver?: string
+  readonly vendor?: string
+  readonly module?: string
+  readonly blacklist?: boolean
+  readonly blacklist_reason?: string
 }
 
 export type BusListOk = {
   readonly ok: true
   readonly interfaces: readonly BusInterface[]
+  readonly warnings?: readonly BusListWarning[]
 }
 
 export type BusOpenOk = {

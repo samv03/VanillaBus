@@ -46,7 +46,7 @@ for iface in "${IFACES[@]}"; do
   bring_up "$iface"
 done
 
-echo "Do not start Electron as root. See docs/privileges.md."
+echo "Do not start Electron as root. See docs/privileges.md (pkexec / setcap helper, never the desktop)."
 if [[ "${#IFACES[@]}" -gt 1 ]]; then
   echo "Multi-bus: connect ${IFACES[*]} in the header (one DBC per bus). Buses are isolated unless you add a can-gw bridge."
 fi

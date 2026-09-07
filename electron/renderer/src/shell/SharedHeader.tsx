@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
-import type { BusInterface } from '../../../../shared/engine'
-import { formatBusOptionLabel } from '../../../../shared/multiBus'
+import type { BusInterface, BusListWarning } from '../../../../shared/engine'
+import { busBlacklistWarning, formatBusOptionLabel, formatVendorHint } from '../../../../shared/multiBus'
 import { formatStatus, type BusActionStatus, type OpenedBus, type OpenedDbc } from './types'
 
 const DBC_PRESETS = ['fixtures/dbc/sample.dbc', 'fixtures/dbc/mux.dbc'] as const
@@ -8,6 +8,7 @@ const DBC_PRESETS = ['fixtures/dbc/sample.dbc', 'fixtures/dbc/mux.dbc'] as const
 type SharedHeaderProps = {
   readonly engineConnected: boolean
   readonly interfaces: readonly BusInterface[]
+  readonly listWarnings?: readonly BusListWarning[]
   readonly opened: readonly OpenedBus[]
   readonly selectedBus: string
   readonly onSelectBus: (name: string) => void
@@ -26,6 +27,7 @@ type SharedHeaderProps = {
 export function SharedHeader({
   engineConnected,
   interfaces,
+  listWarnings,
   opened,
   selectedBus,
   onSelectBus,
@@ -48,6 +50,8 @@ export function SharedHeader({
       : [selectedBus, ...names, ...extra.filter((name) => name !== selectedBus)]
   const uniqueOptions = [...new Set(options)]
   const selectedMeta = interfaces.find((iface) => iface.name === selectedBus)
+  const vendorHint = formatVendorHint(selectedMeta)
+  const blacklistWarning = busBlacklistWarning(interfaces, listWarnings)
   const openHint =
     opened.length === 0
       ? 'No bus open'
@@ -97,12 +101,15 @@ export function SharedHeader({
             offLabel="Disconnected"
             hint={
               selectedMeta
-                ? `${selectedMeta.name} ${selectedMeta.state} · ${openHint}`
-                : busConnected
-                  ? openHint
-                  : openHint
+                ? `${selectedMeta.name} ${selectedMeta.state}${vendorHint ? ` · ${vendorHint}` : ''} · ${openHint}`
+                : openHint
             }
           />
+          {vendorHint ? (
+            <span className="header-vendor-hint mono muted" title={selectedMeta?.module}>
+              {vendorHint}
+            </span>
+          ) : null}
         </div>
 
         <div className="header-group header-group-dbc">
@@ -171,6 +178,11 @@ export function SharedHeader({
             Select a chip or the dropdown, then Load / TX. Disconnect closes only the active bus.
           </span>
         </div>
+      ) : null}
+      {blacklistWarning ? (
+        <p className="header-blacklist-warn" role="alert">
+          SocketCAN blacklist: {blacklistWarning}
+        </p>
       ) : null}
       <p
         className={status.kind === 'error' ? 'header-status header-status-error' : 'header-status'}

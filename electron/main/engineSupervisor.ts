@@ -5,6 +5,7 @@ import {
   type BusCloseOk,
   type BusInterface,
   type BusListOk,
+  type BusListWarning,
   type BusOpenOk,
   type DbcClearOk,
   type DbcLoadOk,
@@ -74,7 +75,8 @@ export class EngineSupervisor {
     if (interfaces === null) {
       throw new EngineRequestError('invalid_payload', 'bus.list response missing interfaces')
     }
-    return { ok: true, interfaces }
+    const warnings = parseListWarnings(payload.warnings)
+    return warnings.length > 0 ? { ok: true, interfaces, warnings } : { ok: true, interfaces }
   }
 
   async openBus(name: string, bitrate?: number): Promise<BusOpenOk> {
@@ -379,8 +381,51 @@ function parseInterfaces(raw: unknown): BusInterface[] | null {
     interfaces.push({
       name: record.name,
       kind: typeof record.kind === 'string' && record.kind.length > 0 ? record.kind : 'socketcan',
-      state
+      state,
+      ...(typeof record.driver === 'string' && record.driver.length > 0 ? { driver: record.driver } : {}),
+      ...(typeof record.vendor === 'string' && record.vendor.length > 0 ? { vendor: record.vendor } : {}),
+      ...(typeof record.module === 'string' && record.module.length > 0 ? { module: record.module } : {}),
+      ...(record.blacklist === true
+        ? {
+            blacklist: true as const,
+            ...(typeof record.blacklist_reason === 'string' && record.blacklist_reason.length > 0
+              ? { blacklist_reason: record.blacklist_reason }
+              : {})
+          }
+        : {})
     })
   }
   return interfaces
+}
+
+function parseListWarnings(raw: unknown): BusListWarning[] {
+  if (!Array.isArray(raw)) {
+    return []
+  }
+  const warnings: BusListWarning[] = []
+  for (const item of raw) {
+    if (item === null || typeof item !== 'object' || Array.isArray(item)) {
+      continue
+    }
+    const record = item as Record<string, unknown>
+    if (
+      typeof record.vendor !== 'string' ||
+      record.vendor.length === 0 ||
+      typeof record.module !== 'string' ||
+      record.module.length === 0 ||
+      typeof record.source !== 'string' ||
+      record.source.length === 0 ||
+      typeof record.message !== 'string' ||
+      record.message.length === 0
+    ) {
+      continue
+    }
+    warnings.push({
+      vendor: record.vendor,
+      module: record.module,
+      source: record.source,
+      message: record.message
+    })
+  }
+  return warnings
 }

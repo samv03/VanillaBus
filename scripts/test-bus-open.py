@@ -136,12 +136,22 @@ def test_list_and_manager_without_host_vcan() -> None:
     (eth / "type").write_text("1\n")
     (eth / "flags").write_text("0x1003\n")
 
-    listed = {item["name"]: item for item in list_interfaces(net)}
+    empty_modprobe = root / "modprobe.d"
+    empty_modprobe.mkdir()
+    empty_modules = root / "module"
+    empty_modules.mkdir()
+    listed = {
+        item["name"]: item
+        for item in list_interfaces(net, modprobe_d=empty_modprobe, sys_module=empty_modules)
+    }
     assert "eth0" not in listed
     assert listed["vcan0"]["kind"] == "vcan"
     assert listed["vcan0"]["state"] == "up"
+    assert listed["vcan0"]["vendor"] == "virtual"
+    assert listed["vcan0"]["blacklist"] is False
     assert listed["can0"]["kind"] == "mcp251x"
     assert listed["can0"]["state"] == "down"
+    assert listed["can0"]["vendor"] == "microchip"
     print("sysfs list (up vcan + down can, skip eth0): ok")
 
     opened: list[tuple[str, int | None]] = []

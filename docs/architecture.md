@@ -55,12 +55,17 @@ ring. T10 is the M1 exit smoke: one bus, fixture DBC, `rate_ms`, and the N2
 <50 ms first-paint gate (`npm run test:smoke`). Graph is T11 (uPlot + DBC
 signal picker). Transmit T12 is raw one-shot + cyclic TX; T13 fills DBC pack.
 T14 (M3) is concurrent multi-bus + one DBC per bus (`npm run test:multibus`).
-T4–T7 bus/RX/`rate_ms`/DBC unpack stay as they are. The engine does not bring
-interfaces up or set bitrate via
-`CAP_NET_ADMIN`. See [smoke.md](smoke.md) for the Xvfb/headless CI path.
+T15 adds the vendor SocketCAN matrix, `bus.list` driver/vendor/blacklist
+metadata, and privilege / CAN FD docs — still SocketCAN-only, no vendor
+SDKs. T4–T7 bus/RX/`rate_ms`/DBC unpack stay as they are. The engine does
+not bring interfaces up or set bitrate via `CAP_NET_ADMIN`. See
+[smoke.md](smoke.md) for the Xvfb/headless CI path and
+[socketcan-vendors.md](socketcan-vendors.md) for Peak / Kvaser / IXXAT.
 
 Layout (T8): top tabs, not a left rail. Theme is dark engineering
 (`#0d1117` / `#161b22`); IDs, hex, and rate use monospace.
 
 Linux SocketCAN (`can0`, `vcan0`) is the first-class backend. There is no
-`native/can-helper` tree and no Peak/Kvaser SDK in this repository.
+`native/can-helper` tree and no Peak/Kvaser/IXXAT proprietary SDK in this
+repository. Peak and Kvaser use mainline `peak_usb` / `kvaser_usb`; IXXAT
+is HMS SocketCAN OOT/DKMS (`ix_usb_can`) on Ubuntu 22.04 and 24.04.

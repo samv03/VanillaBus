@@ -109,7 +109,13 @@ async def handle_request(message: dict, manager: BusManager, send) -> None:
     try:
         if msg_type == "bus.list":
             listed = manager.list()
-            await send(bus_list_message(listed["interfaces"], msg_id))
+            await send(
+                bus_list_message(
+                    listed["interfaces"],
+                    msg_id,
+                    listed.get("warnings") or None,
+                )
+            )
             return
         if msg_type == "bus.open":
             opened = manager.open(payload.get("name"), payload.get("bitrate"))

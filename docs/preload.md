@@ -41,7 +41,11 @@ window.vanillabus = {
 Bus results are tagged `{ ok: true, … }` or
 `{ ok: false, error: { code, message } }` so a down/missing iface does not
 throw through the renderer. Engine codes include `iface_not_found`,
-`iface_down`, `bus_not_found`, `engine_disconnected`.
+`iface_down`, `bus_not_found`, `engine_disconnected`. `listBuses` may
+include optional vendor metadata (`driver`, `vendor`, `module`,
+`blacklist`) on each iface and optional host `warnings` when a Peak or
+Kvaser SDK has blacklisted mainline SocketCAN. Clients that only read
+`name` / `kind` / `state` stay valid.
 
 `loadDbc` / `clearDbc` return `{ ok: true, message_count, catalog }` /
 `{ ok: true }` or `{ ok: false, error: { code, message } }`. `catalog` is

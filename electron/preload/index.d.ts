@@ -6,6 +6,7 @@ export type {
   BusInterface,
   BusInterfaceState,
   BusListResult,
+  BusListWarning,
   BusOpenResult,
   DbcClearResult,
   DbcLoadResult,

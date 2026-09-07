@@ -15,7 +15,9 @@ signals, Send / Start cyclic — cantools encodes in the engine. T14
 (**M3**) opens **two or more buses at once** (`vcan0` + `vcan1`), each
 with its own DBC, RX thread, rate tracker, and TX jobs. Closing one bus
 does not tear down the other. TX on A never appears as RX on B unless
-you add a kernel `can-gw` bridge.
+you add a kernel `can-gw` bridge. T15 documents vendor SocketCAN
+(Peak / Kvaser mainline, IXXAT OOT/DKMS) and enriches `bus.list` with
+driver / vendor / blacklist metadata.
 
 After `bus.open`, `vanillabus-engine` recv()s on that python-can bus and
 emits `rx.batch` (≤16 ms or ≤500 frames). T6 fills `rate_ms` as the last
@@ -60,8 +62,14 @@ sudo apt-get install -y nodejs
 `npm run test:shell` is a tiny diagnostic (`node scripts/test-shell-tabs.mjs`)
 and does not use `tsx` or `node --test`. The full app still needs Node 20.
 
-VanillaBus talks to Linux SocketCAN first (`can0`, `vcan0`, …). Vendor SDKs
-(Peak, Kvaser, …) are out of scope.
+VanillaBus talks to Linux SocketCAN first (`can0`, `vcan0`, …). PEAK and
+Kvaser use **mainline** `peak_usb` / `kvaser_usb`. IXXAT is HMS SocketCAN
+**OOT/DKMS** (`ix_usb_can`) on both Ubuntu 22.04 and 24.04 — there is no
+`CONFIG_CAN_IXXAT_USB` in those distro kernels. Do **not** install Peak
+chardev or Kvaser LinuxCAN (they blacklist SocketCAN). Vendor SDKs
+(PCAN-Basic, CANlib, ECI) are out of scope. See
+[docs/socketcan-vendors.md](docs/socketcan-vendors.md) and the CAN FD
+checklist [docs/can-fd.md](docs/can-fd.md).
 
 ## Privilege / pre-UP (MVP)
 
@@ -74,8 +82,9 @@ sudo ./scripts/setup-vcan.sh          # creates vcan0 + vcan1 and sets them UP
 
 Opening a missing or down iface returns structured `engine.error`
 (`iface_not_found` / `iface_down`) and does not crash. See
-[docs/privileges.md](docs/privileges.md). A later pkexec/`setcap` helper may
-own `CAP_NET_ADMIN` — never Electron as root.
+[docs/privileges.md](docs/privileges.md) for `pkexec` of
+`scripts/setup-vcan.sh` and optional `setcap cap_net_admin,cap_net_raw=ep`
+on an **engine helper** — never Electron as root.
 
 ## Run the desktop app
 
@@ -111,6 +120,7 @@ python3 scripts/test-ipc-hello.py     # T2 hello / heartbeat (or npm run test:ip
 npm run test:bridge                   # T3 disconnect / respawn
 python3 scripts/test-bus-open.py      # T4 list / missing error / optional vcan
 # or: npm run test:bus
+npm run test:vendor                   # T15 vendor metadata + blacklist (offline)
 npm run test:bus-bridge               # same path via EngineSupervisor
 python3 scripts/test-rx-batch.py      # T5 frame map + drop-oldest + optional vcan
 # or: npm run test:rx
@@ -364,7 +374,9 @@ fixtures/golden/        # unpack + pack vectors for sample + mux
 docs/architecture.md
 docs/ipc.md
 docs/preload.md
-docs/privileges.md
+docs/privileges.md      # pre-UP, pkexec, setcap — never Electron as root
+docs/socketcan-vendors.md  # T15 Peak/Kvaser/IXXAT SocketCAN matrix
+docs/can-fd.md          # T15 FD checklist (docs only)
 docs/smoke.md           # T10 M1 smoke + Xvfb/headless CI notes
 ```
 

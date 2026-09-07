@@ -17,6 +17,9 @@ clears only that busId's rate, DBC, and cyclic jobs.
 
 The engine binds an iface only if it already exists and is UP. It never
 `ip link set up`. See [docs/privileges.md](../docs/privileges.md).
+`bus.list` adds driver / vendor / blacklist metadata from sysfs and
+`/etc/modprobe.d` (Peak chardev / Kvaser LinuxCAN). Vendor SocketCAN
+matrix: [docs/socketcan-vendors.md](../docs/socketcan-vendors.md).
 
 ## Install (editable)
 
@@ -40,6 +43,7 @@ and DBC unpack without Electron:
 ```bash
 python3 scripts/test-ipc-hello.py
 python3 scripts/test-bus-open.py
+python3 scripts/test-vendor-metadata.py
 python3 scripts/test-rx-batch.py
 python3 scripts/test-rate-ms.py
 python3 scripts/test-dbc-unpack.py

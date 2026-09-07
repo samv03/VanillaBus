@@ -1,5 +1,10 @@
 import { useEffect, useState, type ReactElement } from 'react'
-import { DISCONNECTED_ENGINE_INFO, type BusInterface, type EngineInfo } from '../../../shared/engine'
+import {
+  DISCONNECTED_ENGINE_INFO,
+  type BusInterface,
+  type BusListWarning,
+  type EngineInfo
+} from '../../../shared/engine'
 import { parseAppTab, type AppTab } from '../../../shared/appTabs'
 import { useGraphModel } from './graph/useGraphModel'
 import { GraphScreen } from './screens/GraphScreen'
@@ -23,6 +28,7 @@ export function App(): ReactElement {
   const [tab, setTab] = useState<AppTab>(readTab)
   const [info, setInfo] = useState<EngineInfo>(DISCONNECTED_ENGINE_INFO)
   const [interfaces, setInterfaces] = useState<readonly BusInterface[]>([])
+  const [listWarnings, setListWarnings] = useState<readonly BusListWarning[]>([])
   const [opened, setOpened] = useState<OpenedBus[]>([])
   const [selectedBus, setSelectedBus] = useState('vcan0')
   const [dbcPath, setDbcPath] = useState(SAMPLE_DBC)
@@ -66,6 +72,7 @@ export function App(): ReactElement {
   useEffect(() => {
     if (!info.connected) {
       setInterfaces([])
+      setListWarnings([])
       setOpened([])
       trace.reset()
       graph.reset()
@@ -85,6 +92,7 @@ export function App(): ReactElement {
         return
       }
       setInterfaces(result.interfaces)
+      setListWarnings(result.warnings ?? [])
       if (result.interfaces.length > 0 && !result.interfaces.some((iface) => iface.name === selectedBus)) {
         setSelectedBus(result.interfaces[0].name)
       }
@@ -232,6 +240,7 @@ export function App(): ReactElement {
         <SharedHeader
           engineConnected={connected}
           interfaces={interfaces}
+          listWarnings={listWarnings}
           opened={opened}
           selectedBus={selectedBus}
           onSelectBus={selectHeaderBus}

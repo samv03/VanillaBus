@@ -10,8 +10,10 @@ import { test } from 'node:test'
 import type { FrameEvent } from '../shared/engine'
 import { GraphStore } from '../shared/graphStore'
 import {
+  busBlacklistWarning,
   findOpenedByName,
   formatBusOptionLabel,
+  formatVendorHint,
   remainingSelectedBus
 } from '../shared/multiBus'
 import { applyRxBatch } from '../shared/traceControl'
@@ -50,6 +52,21 @@ test('header helpers label open buses and keep the other selection on close', ()
   assert.equal(findOpenedByName(opened, 'vcan1')?.busId, 'id-b')
   assert.equal(formatBusOptionLabel('vcan0', { kind: 'vcan', state: 'up' }, true), 'vcan0 (vcan, up, open)')
   assert.equal(formatBusOptionLabel('vcan1', { kind: 'vcan', state: 'up' }, false), 'vcan1 (vcan, up)')
+  assert.equal(
+    formatBusOptionLabel('can0', { kind: 'peak_usb', state: 'down', vendor: 'peak', blacklist: true }, false),
+    'can0 (peak_usb, down, peak, blacklisted)'
+  )
+  assert.equal(formatVendorHint({ kind: 'peak_usb', vendor: 'peak', driver: 'peak_usb' }), 'peak · peak_usb')
+  assert.equal(formatVendorHint({ kind: 'vcan', vendor: 'virtual' }), null)
+  assert.equal(
+    busBlacklistWarning(
+      [{ blacklist: true, blacklist_reason: 'peak_usb is blacklisted in blacklist-peak.conf' }],
+      []
+    ),
+    'peak_usb is blacklisted in blacklist-peak.conf'
+  )
+  assert.equal(busBlacklistWarning([], [{ message: 'kvaser_usb is blacklisted in kvaser.conf' }]), 'kvaser_usb is blacklisted in kvaser.conf')
+  assert.equal(busBlacklistWarning([], []), null)
   assert.equal(remainingSelectedBus(opened, 'id-a', 'vcan0'), 'vcan1')
   assert.equal(remainingSelectedBus(opened, 'id-a', 'vcan1'), 'vcan1')
   assert.equal(remainingSelectedBus(opened, 'id-missing', 'vcan0'), 'vcan0')

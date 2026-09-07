@@ -43,6 +43,15 @@ test(
         assert.equal(typeof iface.name, 'string')
         assert.equal(typeof iface.kind, 'string')
         assert.ok(iface.state === 'up' || iface.state === 'down')
+        if (iface.vendor !== undefined) {
+          assert.equal(typeof iface.vendor, 'string')
+        }
+        if (iface.blacklist !== undefined) {
+          assert.equal(typeof iface.blacklist, 'boolean')
+        }
+      }
+      if (listed.warnings !== undefined) {
+        assert.ok(Array.isArray(listed.warnings))
       }
 
       await assert.rejects(

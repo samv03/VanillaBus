@@ -13,6 +13,9 @@
   --err: #f85149;
   --err-border: #6e2c2c;
   --err-bg: #2a1616;
+  --warn: #d29922;
+  --warn-border: #9e6a03;
+  --warn-bg: #2a2110;
   font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
   line-height: 1.45;
   font-weight: 400;
@@ -258,6 +261,22 @@ input.mono {
 
 .header-open-hint {
   font-size: 0.75rem;
+}
+
+.header-vendor-hint {
+  font-size: 0.75rem;
+  align-self: center;
+  padding-bottom: 0.15rem;
+}
+
+.header-blacklist-warn {
+  margin: 0.45rem 0 0;
+  font-size: 0.8rem;
+  color: var(--warn);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  border-radius: 0.35rem;
+  padding: 0.35rem 0.55rem;
 }
 
 .header-status {

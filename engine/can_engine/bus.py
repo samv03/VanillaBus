@@ -21,6 +21,7 @@ from can_engine.dbc import DbcError, DbcStore, pack_frame
 from can_engine.rate import RateTracker
 from can_engine.rx import RX_BATCH_MAX_FRAMES, RxPump, message_to_frame
 from can_engine.tx import CyclicScheduler, TxError, TxSpec, build_can_message, parse_period_ms, parse_tx_spec
+from can_engine.vendor import collect_blacklist_hits, enrich_interface, list_warnings
 
 # Linux ARPHRD_CAN / IFF_UP. Used so list() can report down ifaces too.
 ARPHRD_CAN = 280
@@ -96,30 +97,56 @@ def interface_kind(name: str, sysfs_net: Path | None = None) -> str:
     return "socketcan"
 
 
-def inspect_interface(name: str, sysfs_net: Path | None = None) -> dict[str, str] | None:
+def inspect_interface(
+    name: str,
+    sysfs_net: Path | None = None,
+    hits: list[dict[str, str]] | None = None,
+) -> dict[str, Any] | None:
     if not is_can_interface(name, sysfs_net):
         return None
-    return {
+    info: dict[str, Any] = {
         "name": name,
         "kind": interface_kind(name, sysfs_net),
         "state": interface_state(name, sysfs_net),
     }
+    return enrich_interface(info, hits)
 
 
-def list_interfaces(sysfs_net: Path | None = None) -> list[dict[str, str]]:
+def list_interfaces(
+    sysfs_net: Path | None = None,
+    *,
+    modprobe_d: Path | None = None,
+    sys_module: Path | None = None,
+    hits: list[dict[str, str]] | None = None,
+) -> list[dict[str, Any]]:
     root = _sysfs_net(sysfs_net)
     if not root.is_dir():
         return []
-    found: list[dict[str, str]] = []
+    found: list[dict[str, Any]] = []
     try:
         names = sorted(entry.name for entry in root.iterdir() if entry.is_dir() or entry.is_symlink())
     except OSError:
         return []
+    resolved_hits = hits if hits is not None else collect_blacklist_hits(modprobe_d, sys_module)
     for name in names:
-        info = inspect_interface(name, root)
+        info = inspect_interface(name, root, resolved_hits)
         if info is not None:
             found.append(info)
     return found
+
+
+def list_bus_payload(
+    sysfs_net: Path | None = None,
+    *,
+    modprobe_d: Path | None = None,
+    sys_module: Path | None = None,
+) -> dict[str, Any]:
+    """bus.list body: interfaces plus optional host-level SDK blacklist warnings."""
+    hits = collect_blacklist_hits(modprobe_d, sys_module)
+    return {
+        "interfaces": list_interfaces(sysfs_net, hits=hits),
+        "warnings": list_warnings(hits),
+    }
 
 
 def validate_iface_name(name: str) -> str:
@@ -156,9 +183,17 @@ def _open_socketcan(name: str, bitrate: int | None) -> Any:
 class BusManager:
     """In-process map of busId → python-can SocketCAN bus."""
 
-    def __init__(self, sysfs_net: Path | None = None, opener=_open_socketcan) -> None:
+    def __init__(
+        self,
+        sysfs_net: Path | None = None,
+        opener=_open_socketcan,
+        modprobe_d: Path | None = None,
+        sys_module: Path | None = None,
+    ) -> None:
         self._sysfs_net = sysfs_net
         self._opener = opener
+        self._modprobe_d = modprobe_d
+        self._sys_module = sys_module
         self._buses: dict[str, Any] = {}
         self._names: dict[str, str] = {}
         self._pumps: dict[str, RxPump] = {}
@@ -168,7 +203,11 @@ class BusManager:
         self._cyclic = CyclicScheduler()
 
     def list(self) -> dict[str, Any]:
-        return {"interfaces": list_interfaces(self._sysfs_net)}
+        return list_bus_payload(
+            self._sysfs_net,
+            modprobe_d=self._modprobe_d,
+            sys_module=self._sys_module,
+        )
 
     def open(self, name: object, bitrate: object = None) -> dict[str, Any]:
         if not isinstance(name, str) or not name:

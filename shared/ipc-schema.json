@@ -191,7 +191,7 @@
           }
         },
         "bus.list": {
-          "description": "List SocketCAN/vcan interfaces with kind hint and up/down state. Engine-side only.",
+          "description": "List SocketCAN/vcan interfaces with kind/state plus optional vendor metadata. name/kind/state stay required so older clients keep working. Engine-side only.",
           "type": "object",
           "properties": {
             "direction": { "const": "request-response" },
@@ -212,9 +212,48 @@
                       "kind": {
                         "type": "string",
                         "description": "Driver or kind hint (vcan, vxcan, kernel driver, socketcan).",
-                        "examples": ["vcan", "socketcan", "mcp251x"]
+                        "examples": ["vcan", "socketcan", "mcp251x", "peak_usb"]
                       },
-                      "state": { "type": "string", "enum": ["up", "down"] }
+                      "state": { "type": "string", "enum": ["up", "down"] },
+                      "driver": {
+                        "type": "string",
+                        "description": "Sysfs driver / module hint (usually the same as kind)."
+                      },
+                      "vendor": {
+                        "type": "string",
+                        "description": "Vendor family when detectable from the driver name.",
+                        "examples": ["peak", "kvaser", "ixxat", "virtual", "microchip", "unknown"]
+                      },
+                      "module": {
+                        "type": "string",
+                        "description": "Suggested SocketCAN module (peak_usb, kvaser_usb, ix_usb_can, vcan, …)."
+                      },
+                      "blacklist": {
+                        "type": "boolean",
+                        "description": "True when a Peak/Kvaser SDK blacklist file or proprietary module is present for this vendor family."
+                      },
+                      "blacklist_reason": {
+                        "type": "string",
+                        "description": "Human-readable reason when blacklist is true."
+                      }
+                    }
+                  }
+                },
+                "warnings": {
+                  "type": "array",
+                  "description": "Optional host-level Peak/Kvaser SDK blacklist hits. Present even when no matching SocketCAN iface is listed. Older clients ignore this field.",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["vendor", "module", "source", "message"],
+                    "properties": {
+                      "vendor": { "type": "string", "examples": ["peak", "kvaser"] },
+                      "module": { "type": "string", "examples": ["peak_usb", "kvaser_usb", "pcan"] },
+                      "source": {
+                        "type": "string",
+                        "description": "modprobe.d filename or module:<name>."
+                      },
+                      "message": { "type": "string" }
                     }
                   }
                 }

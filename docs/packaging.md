@@ -1,4 +1,4 @@
-# Packaging and host setup (T17)
+# Packaging and host setup
 
 How to run, build, and package VanillaBus on **Ubuntu 22.04 or 24.04**.
 This is the documented host. Other distros may work; they are not gated.
@@ -58,7 +58,8 @@ script**, never of Electron. Opening a missing or down iface returns
 From the repository root (your user, not root):
 
 ```bash
-npm install
+npm ci                                # preferred — Electron 37.x from the lockfile
+# or: npm install
 python3 -m pip install -e engine/     # python-can + cantools
 npm run dev                           # Electron + Vite + vanillabus-engine
 ```
@@ -84,7 +85,43 @@ npm run preview
 There is no electron-builder / AppImage / `.deb` pipeline in this repo yet.
 `npm run build` plus `electron .` (or `electron-vite preview`) is the
 supported packaged-from-source path. A later release gate can add
-electron-builder; do **not** `npm audit fix --force` to chase Electron 41.
+electron-builder. Stay on the Electron 37.x pin below; do **not**
+`npm audit fix --force` to chase Electron 41.
+
+## Electron pin (37.x)
+
+VanillaBus is pinned to **Electron 37.x** (`37.10.3` in `package.json` and
+`package-lock.json`). `electron-vite` 5 works on this line. The plan does
+not require Electron 41.
+
+**Do not run `npm audit fix --force`.** `--force` ignores semver and can
+major-bump Electron. A host previously ended up with **local**
+`node_modules` on 41.x while the repo still declared 37.x. Inspect with
+`npm audit` and bump dependencies deliberately. Prefer `npm ci` so the
+lockfile is what gets installed.
+
+Confirm:
+
+```bash
+npx electron --version    # expect v37.x
+npm ls electron           # expect electron@37.10.3
+npm run test:electron-pin # offline package.json + lockfile (+ node_modules) check
+./scripts/check-host.sh
+```
+
+### Recover a polluted host
+
+If the installed Electron major is not 37.x:
+
+```bash
+rm -rf node_modules
+# Recreate package-lock.json only if you *intend* to change pins.
+# Otherwise leave it alone so npm ci restores 37.10.3.
+npm ci                    # preferred — installs the lockfile
+# or: npm install
+npx electron --version    # expect v37.x
+npm ls electron
+```
 
 ## Tests that gate persist
 

@@ -99,10 +99,17 @@ on an **engine helper** — never Electron as root.
 From the repository root:
 
 ```bash
-npm install
+npm ci                              # preferred — restores the lockfile (Electron 37.x)
+# or: npm install
 python3 -m pip install -e engine/   # installs python-can + cantools; main also sets PYTHONPATH=engine
 npm run dev
 ```
+
+Electron is pinned to **37.x** (`37.10.3`). Do **not** run
+`npm audit fix --force` — it can major-bump Electron (a host once had
+local 41.x while the repo still said 37). If `npx electron --version` or
+`npm ls electron` is not 37.x: `rm -rf node_modules && npm ci`. See
+[docs/packaging.md](docs/packaging.md).
 
 `npm run dev` starts Vite, opens an Electron window titled **VanillaBus**, and
 spawns `python3 -m can_engine --ipc <socket>`. After `engine.hello` the shared
@@ -157,6 +164,7 @@ npm run test:harden                   # T16 backpressure / OOM / IPC / restart
 npm run test:persist                  # T17 userData store round-trip (offline)
 npm run test:smoke                    # T10 M1 Trace+DBC+rate + N2 (tsx)
 # or: npm run test:m1                 # test:smoke + Electron/Xvfb stub
+npm run test:electron-pin             # offline Electron 37.x pin vs lockfile
 ```
 
 `test:shell` runs `node scripts/test-shell-tabs.mjs` (assert + `shared/appTabs.mjs`,
@@ -381,8 +389,9 @@ pack). Both Raw and DBC cyclic jobs appear in the Active jobs list.
 ## Helper scripts
 
 ```bash
-./scripts/check-host.sh
+./scripts/check-host.sh               # includes Electron 37.x pin when Node is present
 sudo ./scripts/setup-vcan.sh          # vcan0 + vcan1 UP for bus.open + multi-bus
+./scripts/check-electron-pin.sh       # same as npm run test:electron-pin
 ```
 
 ## Layout
@@ -404,7 +413,7 @@ fixtures/dbc/           # sample + mux + invalid DBC (engine-side only)
 fixtures/golden/        # unpack + pack vectors for sample + mux
 docs/architecture.md
 docs/hardening.md       # T16 backpressure, OOM caps, IPC, restart
-docs/packaging.md       # T17 run/build on Ubuntu 22.04/24.04 — never Electron as root
+docs/packaging.md       # Ubuntu 22.04/24.04 run/build, Electron 37.x pin
 docs/ipc.md
 docs/preload.md
 docs/privileges.md      # pre-UP, pkexec, setcap — never Electron as root

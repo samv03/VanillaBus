@@ -40,6 +40,9 @@ from can_engine.rx import RX_BATCH_INTERVAL_S, RX_BATCH_MAX_FRAMES
 LOG = logging.getLogger("vanillabus-engine")
 HEARTBEAT_INTERVAL_S = 2.0
 HEADER_STRUCT_SIZE = 4
+# After the first byte of a frame, the rest must arrive within this window.
+# Idle clients waiting for the *next* request are not timed out.
+IPC_PARTIAL_READ_TIMEOUT_S = 2.0
 
 
 def now_ts_us() -> int:
@@ -68,18 +71,35 @@ def prepare_listen_path(raw_path: str) -> Path:
     return path
 
 
+async def _readexactly_or_timeout(
+    reader: asyncio.StreamReader,
+    nbytes: int,
+    *,
+    what: str,
+) -> bytes:
+    try:
+        return await asyncio.wait_for(reader.readexactly(nbytes), IPC_PARTIAL_READ_TIMEOUT_S)
+    except asyncio.TimeoutError as exc:
+        raise ProtocolError("invalid_length", f"timed out waiting for {what}") from exc
+    except asyncio.IncompleteReadError as exc:
+        raise ProtocolError("invalid_length", f"truncated {what}") from exc
+
+
 async def read_message(reader: asyncio.StreamReader) -> dict | None:
-    header = await reader.read(HEADER_STRUCT_SIZE)
-    if header == b"":
+    """Read one length-prefixed JSON object.
+
+    The first byte of a new frame may wait indefinitely (idle client). Once
+    any byte arrives, a partial header/payload is rejected instead of hanging.
+    Oversized or zero lengths raise ProtocolError; the session closes.
+    """
+    first = await reader.read(1)
+    if first == b"":
         return None
-    if len(header) < HEADER_STRUCT_SIZE:
-        raise ProtocolError("invalid_length", "truncated length header")
+    rest = await _readexactly_or_timeout(reader, HEADER_STRUCT_SIZE - 1, what="length header")
+    header = first + rest
     length = int.from_bytes(header, "big")
     check_length(length)
-    try:
-        payload = await reader.readexactly(length)
-    except asyncio.IncompleteReadError as exc:
-        raise ProtocolError("invalid_length", "truncated JSON payload") from exc
+    payload = await _readexactly_or_timeout(reader, length, what="JSON payload")
     return decode_payload(payload)
 
 
@@ -170,11 +190,18 @@ async def heartbeat_loop(send, writer: asyncio.StreamWriter) -> None:
 
 
 async def rx_flush_loop(send, writer: asyncio.StreamWriter, manager: BusManager) -> None:
-    """Emit rx.batch: ≤16 ms idle delay, ≤500 frames per event."""
+    """Emit rx.batch: ≤16 ms idle delay, ≤500 frames per event (never >33 ms pending).
+
+    Under flood, drain+send loops immediately (500-frame batches). When the
+    queue is empty the loop waits RX_BATCH_INTERVAL_S so a trickle still
+    flushes within the 16–33 ms window. should_flush documents the policy
+    used by harden tests.
+    """
     try:
         while not writer.is_closing():
             frames, dropped = manager.drain_rx(RX_BATCH_MAX_FRAMES)
             if frames:
+                # Immediate send is within the 16–33 ms bound (elapsed ≈ 0).
                 await send(rx_batch_message(frames, dropped))
                 continue
             await asyncio.sleep(RX_BATCH_INTERVAL_S)
@@ -234,10 +261,11 @@ async def client_session(
         LOG.info("client disconnected")
 
 
-async def serve(path: Path) -> None:
-    manager = BusManager()
+async def serve(path: Path, manager: BusManager | None = None) -> None:
+    owner = manager is None
+    mgr = manager if manager is not None else BusManager()
     server = await asyncio.start_unix_server(
-        lambda reader, writer: client_session(reader, writer, manager),
+        lambda reader, writer: client_session(reader, writer, mgr),
         path=str(path),
     )
     os.chmod(path, 0o600)
@@ -246,7 +274,8 @@ async def serve(path: Path) -> None:
         async with server:
             await server.serve_forever()
     finally:
-        manager.close_all()
+        if owner:
+            mgr.close_all()
 
 
 def main(argv: list[str] | None = None) -> int:

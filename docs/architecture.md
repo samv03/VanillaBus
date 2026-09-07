@@ -27,9 +27,10 @@ VanillaBus is a SocketCAN-first desktop bus monitor.
   decode stream (independent pause, 10–30 Hz UI decimation). Transmit is
   raw one-shot + cyclic TX (T12) and DBC pack/encode (T13). The renderer
   must not talk to SocketCAN or parse DBC.
-- **Main** owns the window, the Unix-socket path, and a **minimal** engine
-  supervisor (spawn, log disconnect, respawn, request/response). Full
-  hardening is later (T16).
+- **Main** owns the window, the Unix-socket path, and the engine supervisor
+  (spawn, log disconnect, respawn, request/response). T16 hardens
+  backpressure, OOM caps, IPC framing, and restart under load — see
+  [hardening.md](hardening.md).
 - **Preload** exposes `window.vanillabus`: engine status plus `listBuses` /
   `openBus` / `closeBus` / `loadDbc` / `clearDbc` / `sendFrame` /
   `startCyclic` / `stopCyclic` / `onRxBatch`. No raw sockets or SocketCAN
@@ -57,9 +58,13 @@ signal picker). Transmit T12 is raw one-shot + cyclic TX; T13 fills DBC pack.
 T14 (M3) is concurrent multi-bus + one DBC per bus (`npm run test:multibus`).
 T15 adds the vendor SocketCAN matrix, `bus.list` driver/vendor/blacklist
 metadata, and privilege / CAN FD docs — still SocketCAN-only, no vendor
-SDKs. T4–T7 bus/RX/`rate_ms`/DBC unpack stay as they are. The engine does
-not bring interfaces up or set bitrate via `CAP_NET_ADMIN`. See
-[smoke.md](smoke.md) for the Xvfb/headless CI path and
+SDKs. T16 (M4 start) hardens RX drop-oldest + `dropped`, batch ≤16–33 ms
+or ≤500 frames, queue / Trace / Graph / rate-key caps, IPC oversized and
+partial-read rejection, and supervisor restart under load
+(`npm run test:harden`). T4–T7 bus/RX/`rate_ms`/DBC unpack stay as they
+are. The engine does not bring interfaces up or set bitrate via
+`CAP_NET_ADMIN`. See [smoke.md](smoke.md) for the Xvfb/headless CI path,
+[hardening.md](hardening.md) for T16, and
 [socketcan-vendors.md](socketcan-vendors.md) for Peak / Kvaser / IXXAT.
 
 Layout (T8): top tabs, not a left rail. Theme is dark engineering

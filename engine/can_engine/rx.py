@@ -1,4 +1,10 @@
-"""Raw RX batching (T5 stub). Not production Trace (T9)."""
+"""Raw RX batching with drop-oldest backpressure (T5 / T16).
+
+The recv thread never grows past RX_QUEUE_MAX. Oldest frames are discarded
+and counted on `rx.batch.dropped`. The IPC flush loop emits a batch when
+≤16 ms have passed *or* ≤500 frames are ready, and never waits more than
+33 ms with frames pending.
+"""
 
 from __future__ import annotations
 
@@ -12,9 +18,23 @@ from can_engine.rate import RateTracker
 
 # Flush when this much time has passed *or* this many frames are ready.
 RX_BATCH_INTERVAL_S = 0.016
+RX_BATCH_MAX_INTERVAL_S = 0.033
 RX_BATCH_MAX_FRAMES = 500
 RX_QUEUE_MAX = 4096
 RX_RECV_TIMEOUT_S = 0.05
+
+
+def should_flush(frame_count: int, elapsed_s: float) -> bool:
+    """True when a pending batch must go out (≤16–33 ms or ≤500 frames)."""
+    if frame_count <= 0:
+        return False
+    if frame_count >= RX_BATCH_MAX_FRAMES:
+        return True
+    if elapsed_s >= RX_BATCH_INTERVAL_S:
+        return True
+    if elapsed_s >= RX_BATCH_MAX_INTERVAL_S:
+        return True
+    return False
 
 
 def now_ts_us() -> int:
@@ -96,6 +116,14 @@ class RxPump:
     def dropped(self) -> int:
         with self._dropped_lock:
             return self._dropped
+
+    @property
+    def qsize(self) -> int:
+        return self._queue.qsize()
+
+    @property
+    def queue_max(self) -> int:
+        return self._queue.maxsize
 
     def start(self) -> None:
         if self._thread is not None:

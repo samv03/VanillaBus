@@ -8,6 +8,7 @@ type GraphFooterProps = {
   readonly errors: number
   readonly windowSec: GraphWindowSec
   readonly updatedUs: number | null
+  readonly dropped?: number
 }
 
 export function GraphFooter({
@@ -15,13 +16,15 @@ export function GraphFooter({
   rate,
   errors,
   windowSec,
-  updatedUs
+  updatedUs,
+  dropped = 0
 }: GraphFooterProps): ReactElement {
   return (
     <footer className="graph-footer">
       <p className="mono">
         Messages: {messageCount.toLocaleString()} · Rate:{' '}
         {rate === null ? '—' : `${Math.round(rate)} msg/s`} · Errors: {errors}
+        {dropped > 0 ? ` · dropped ${dropped.toLocaleString()}` : ''}
       </p>
       <p className="mono">
         Window: {windowSec}s · Updated: {formatGraphClock(updatedUs)}

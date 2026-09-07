@@ -11,6 +11,11 @@ export const GRAPH_MIN_HZ = 10
 export const GRAPH_MAX_HZ = 30
 export const GRAPH_DEFAULT_HZ = 20
 
+/** Hard cap on simultaneous series buffers (unique decode keys under flood). */
+export const GRAPH_SERIES_MAX = 256
+/** Hard cap on Graph catalog entries built from live decode. */
+export const GRAPH_CATALOG_MAX = 512
+
 export function isGraphWindowSec(value: number): value is GraphWindowSec {
   return (GRAPH_WINDOWS_SEC as readonly number[]).includes(value)
 }

@@ -60,6 +60,7 @@ export function GraphScreen({ model, activeBusName }: GraphScreenProps): ReactEl
           errors={model.store.errorCount}
           windowSec={model.windowSec}
           updatedUs={model.store.updatedUs}
+          dropped={model.store.engineDropped}
         />
       </div>
     </div>

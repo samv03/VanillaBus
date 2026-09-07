@@ -17,10 +17,14 @@ with its own DBC, RX thread, rate tracker, and TX jobs. Closing one bus
 does not tear down the other. TX on A never appears as RX on B unless
 you add a kernel `can-gw` bridge. T15 documents vendor SocketCAN
 (Peak / Kvaser mainline, IXXAT OOT/DKMS) and enriches `bus.list` with
-driver / vendor / blacklist metadata.
+driver / vendor / blacklist metadata. T16 (**M4 start**) hardens
+drop-oldest RX + a visible `dropped` counter, batch ≤16–33 ms or ≤500
+frames, OOM caps, IPC oversized/partial-read rejection, and engine
+restart under load (`npm run test:harden`). See
+[docs/hardening.md](docs/hardening.md).
 
 After `bus.open`, `vanillabus-engine` recv()s on that python-can bus and
-emits `rx.batch` (≤16 ms or ≤500 frames). T6 fills `rate_ms` as the last
+emits `rx.batch` (≤16–33 ms or ≤500 frames). T6 fills `rate_ms` as the last
 inter-arrival (`(Δts_us)/1000`) per `(busId, can_id, is_eff)` — not EMA.
 T7 binds one DBC per `busId` (`dbc.load` / `dbc.clear`) and unpacks known
 IDs with **cantools** onto `decode` (`name` + `signals` + `units`). Unknown
@@ -139,6 +143,7 @@ npm run test:tx-dbc                   # T13 golden pack + cyclic DBC ±10% (SKIP
 # or: python3 scripts/test-tx-dbc.py
 npm run test:tx-bridge                # T12/T13 hex/period helpers + supervisor TX (tsx)
 npm run test:multibus                 # T14 two buses + DBC isolation (python + tsx)
+npm run test:harden                   # T16 backpressure / OOM / IPC / restart
 npm run test:smoke                    # T10 M1 Trace+DBC+rate + N2 (tsx)
 # or: npm run test:m1                 # test:smoke + Electron/Xvfb stub
 ```
@@ -180,6 +185,15 @@ with decode, and a 50 ms cyclic DBC job within **±10%**. If `vcan0` is UP
 it loads `sample.dbc`, `tx.send`s `{ message, signals }`, asserts the
 packed `EngineStatus` frame on a peer, and measures 100 ms cyclic DBC
 to ±10%. If not, it prints `SKIP vcan0 DBC TX inject` and still exits 0.
+
+`test:harden` (`npm run test:harden`) always checks the T16 bounds offline:
+flush policy (≤16–33 ms or ≤500 frames), engine RX queue cap 4096 with a
+visible `rx.batch.dropped` counter, rate-key cap, DBC path traversal,
+IPC oversized / malformed / partial-read (no hang), Trace 20k flood,
+Graph window + series caps, and supervisor restart under IPC load.
+If `vcan0` is UP it also floods a live bus and kills the engine under
+RX/TX load, then asserts reconnect + `rx.batch`. If not, it prints
+`SKIP vcan0 harden` and still exits 0.
 
 `test-rx-batch.py` always checks FrameEvent mapping, drop-oldest, and ≤500
 batching (no host CAN required). If `vcan0` is UP it opens the iface, injects
@@ -372,6 +386,7 @@ scripts/                # check-host, setup-vcan, hello + bus + rx + dbc + M1 + 
 fixtures/dbc/           # sample + mux + invalid DBC (engine-side only)
 fixtures/golden/        # unpack + pack vectors for sample + mux
 docs/architecture.md
+docs/hardening.md       # T16 backpressure, OOM caps, IPC, restart
 docs/ipc.md
 docs/preload.md
 docs/privileges.md      # pre-UP, pkexec, setcap — never Electron as root

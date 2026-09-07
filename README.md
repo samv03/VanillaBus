@@ -188,6 +188,7 @@ npm run test:multibus                 # T14 two buses + DBC isolation (python + 
 npm run test:harden                   # T16 backpressure / OOM / IPC / restart
 npm run test:persist                  # T17 userData store round-trip (offline)
 npm run test:engine-paths             # packaged vs cwd engine/python resolution
+npm run test:app-icon                 # Linux/window icon PNG + resolve path (offline)
 npm run test:electron-pin             # offline Electron 37.x pin vs lockfile
 npm run test:smoke                    # T10 M1 Trace+DBC+rate + N2 (tsx)
 # or: npm run test:m1                 # test:smoke + Electron/Xvfb stub

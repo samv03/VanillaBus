@@ -5,6 +5,8 @@ import { registerIpcBridge } from './ipc-bridge'
 
 const WINDOW_TITLE = 'VanillaBus'
 const supervisor = new EngineSupervisor()
+const SMOKE = process.env.VANILLABUS_SMOKE === '1'
+const SMOKE_TIMEOUT_MS = Number.parseInt(process.env.VANILLABUS_SMOKE_MS ?? '8000', 10)
 
 function createWindow(): void {
   const window = new BrowserWindow({
@@ -25,7 +27,9 @@ function createWindow(): void {
 
   window.on('ready-to-show', () => {
     window.setTitle(WINDOW_TITLE)
-    window.show()
+    if (!SMOKE) {
+      window.show()
+    }
   })
 
   // Keep the product title even if the renderer document title changes.
@@ -41,10 +45,32 @@ function createWindow(): void {
   }
 }
 
+function armSmokeExit(): void {
+  if (!SMOKE) {
+    return
+  }
+  const timeoutMs = Number.isFinite(SMOKE_TIMEOUT_MS) && SMOKE_TIMEOUT_MS > 0 ? SMOKE_TIMEOUT_MS : 8000
+  const started = Date.now()
+  const timer = setInterval(() => {
+    if (supervisor.getStatus().connected) {
+      clearInterval(timer)
+      console.log('[smoke] engine.hello ok; exiting 0')
+      app.exit(0)
+      return
+    }
+    if (Date.now() - started >= timeoutMs) {
+      clearInterval(timer)
+      console.error('[smoke] timed out waiting for engine.hello')
+      app.exit(1)
+    }
+  }, 50)
+}
+
 app.whenReady().then(() => {
   registerIpcBridge(supervisor)
   supervisor.start()
   createWindow()
+  armSmokeExit()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

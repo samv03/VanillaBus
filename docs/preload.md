@@ -98,6 +98,9 @@ Automated: `npm run test:bus` and `npm run test:bus-bridge`.
    keeps at most 20_000 frames (drop-oldest).
 
 Automated: `npm run test:trace` (synthetic first-paint + optional live vcan N2).
+M1 vertical slice: `npm run test:smoke` (same N2 path + DBC name / `rate_ms`;
+live SKIP if vcan0 is not UP). Headless Electron hello:
+`xvfb-run -a npm run test:smoke:electron` (SKIP without display/vcan/build).
 Also `npm run test:rx` / `test:rx-bridge` (skip live if vcan0 is not UP).
 Rate median: `npm run test:rate`.
 

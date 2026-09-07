@@ -4,6 +4,9 @@
  * Synthetic path always runs (no CAN required) and asserts first-paint of the
  * visible window at ≤2 kfps is under 50 ms.
  *
+ * N2 constants / measureVisiblePaint live in shared/traceN2.ts so T10
+ * `test:smoke` can reuse the same first-paint gate.
+ *
  * If vcan0 is UP, a live burst is injected and the same paint path is timed
  * on the first rx.batch. Otherwise:
  *
@@ -17,15 +20,18 @@ import type { FrameEvent, RxBatch } from '../shared/engine'
 import { applyRxBatch } from '../shared/traceControl'
 import { collectMatchingIndices, frameMatchesFilter, visibleCount } from '../shared/traceFilter'
 import { formatCanIdPrefixed, formatDataHex, formatRateMs } from '../shared/traceFormat'
-import { paintVisibleWindow, paintedRowsToHtml, TRACE_VISIBLE_ROW_BUDGET } from '../shared/tracePaint'
+import { paintVisibleWindow, TRACE_VISIBLE_ROW_BUDGET } from '../shared/tracePaint'
+import {
+  measureVisiblePaint,
+  N2_FIRST_PAINT_MS,
+  N2_FPS,
+  N2_FRAMES_PER_BATCH,
+  n2BudgetMessage
+} from '../shared/traceN2'
 import { FrameRing, TRACE_RING_CAPACITY } from '../shared/traceRing'
 import { EngineRequestError } from '../electron/main/engineClient'
 import { EngineSupervisor } from '../electron/main/engineSupervisor'
 
-const N2_FIRST_PAINT_MS = 50
-const N2_FPS = 2000
-const BATCH_INTERVAL_MS = 16
-const FRAMES_PER_BATCH = Math.ceil((N2_FPS * BATCH_INTERVAL_MS) / 1000)
 const LIVE_CAN_ID = 0x321
 
 function makeFrame(overrides: Partial<FrameEvent> = {}): FrameEvent {
@@ -76,14 +82,13 @@ function makeBatch(count: number, startTs: number, startId = 0x100): FrameEvent[
 }
 
 function firstPaintMs(ring: FrameRing, frames: readonly FrameEvent[], filter = ''): number {
-  const started = performance.now()
-  applyRxBatch(ring, frames, false)
-  const rows = paintVisibleWindow(ring, { filter, visibleBudget: TRACE_VISIBLE_ROW_BUDGET })
-  const html = paintedRowsToHtml(rows)
-  const elapsed = performance.now() - started
-  assert.ok(html.startsWith('<table>'))
-  assert.equal(rows.length, Math.min(TRACE_VISIBLE_ROW_BUDGET, visibleCount(ring, collectMatchingIndices(ring, filter))))
-  return elapsed
+  const measured = measureVisiblePaint(ring, frames, filter)
+  assert.ok(measured.html.startsWith('<table>'))
+  assert.equal(
+    measured.rows.length,
+    Math.min(TRACE_VISIBLE_ROW_BUDGET, visibleCount(ring, collectMatchingIndices(ring, filter)))
+  )
+  return measured.elapsedMs
 }
 
 test('FrameRing drops oldest at documented capacity', () => {
@@ -147,29 +152,26 @@ test('painted window columns include time/bus/id/name/dlc/data/rate/dir', () => 
 
 test('N2 synthetic first-paint <50 ms at ≤2k fps (visible window only)', () => {
   const ring = new FrameRing(TRACE_RING_CAPACITY)
-  const first = makeBatch(FRAMES_PER_BATCH, 2_000_000)
+  const first = makeBatch(N2_FRAMES_PER_BATCH, 2_000_000)
   const firstMs = firstPaintMs(ring, first)
   assert.ok(
     firstMs < N2_FIRST_PAINT_MS,
-    `first-paint ${firstMs.toFixed(2)} ms exceeds ${N2_FIRST_PAINT_MS} ms (batch ${FRAMES_PER_BATCH} frames @ ${N2_FPS} fps)`
+    n2BudgetMessage(firstMs, `first-paint (batch ${N2_FRAMES_PER_BATCH} frames @ ${N2_FPS} fps)`)
   )
 
   const batchTimes: number[] = [firstMs]
-  const batches = Math.ceil(N2_FPS / FRAMES_PER_BATCH)
+  const batches = Math.ceil(N2_FPS / N2_FRAMES_PER_BATCH)
   for (let index = 1; index < batches; index += 1) {
-    const frames = makeBatch(FRAMES_PER_BATCH, 2_000_000 + index * FRAMES_PER_BATCH * 500)
+    const frames = makeBatch(N2_FRAMES_PER_BATCH, 2_000_000 + index * N2_FRAMES_PER_BATCH * 500)
     batchTimes.push(firstPaintMs(ring, frames))
   }
   const maxMs = Math.max(...batchTimes)
   const medianMs = [...batchTimes].sort((a, b) => a - b)[Math.floor(batchTimes.length / 2)] ?? 0
-  assert.ok(
-    maxMs < N2_FIRST_PAINT_MS,
-    `max batch paint ${maxMs.toFixed(2)} ms exceeds ${N2_FIRST_PAINT_MS} ms`
-  )
+  assert.ok(maxMs < N2_FIRST_PAINT_MS, n2BudgetMessage(maxMs, 'max batch paint'))
   assert.ok(ring.size <= TRACE_RING_CAPACITY)
   assert.ok(ring.size >= Math.min(N2_FPS, TRACE_RING_CAPACITY))
   console.log(
-    `N2 synthetic first-paint ${firstMs.toFixed(2)} ms; median ${medianMs.toFixed(2)} ms; max ${maxMs.toFixed(2)} ms; ring ${ring.size}/${TRACE_RING_CAPACITY}; ${FRAMES_PER_BATCH} frames/batch @ ${N2_FPS} fps`
+    `N2 synthetic first-paint ${firstMs.toFixed(2)} ms; median ${medianMs.toFixed(2)} ms; max ${maxMs.toFixed(2)} ms; ring ${ring.size}/${TRACE_RING_CAPACITY}; ${N2_FRAMES_PER_BATCH} frames/batch @ ${N2_FPS} fps`
   )
 })
 
@@ -260,10 +262,7 @@ test(
       assert.ok(batches.length > 0, 'expected at least one rx.batch from vcan burst')
       const first = batches[0]!
       const paintMs = firstPaintMs(ring, first.frames)
-      assert.ok(
-        paintMs < N2_FIRST_PAINT_MS,
-        `live first-paint ${paintMs.toFixed(2)} ms exceeds ${N2_FIRST_PAINT_MS} ms`
-      )
+      assert.ok(paintMs < N2_FIRST_PAINT_MS, n2BudgetMessage(paintMs, 'live first-paint'))
       console.log(
         `N2 live first-paint ${paintMs.toFixed(2)} ms; first batch ${first.frames.length} frames; later batches ${batches.length}`
       )

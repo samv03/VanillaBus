@@ -40,3 +40,8 @@ python3 scripts/test-rx-batch.py
 python3 scripts/test-rate-ms.py
 python3 scripts/test-dbc-unpack.py
 ```
+
+The M1 desktop smoke (`npm run test:smoke` from the repo root) also spawns
+this engine, opens `vcan0` when it is UP, loads `fixtures/dbc/sample.dbc`,
+and checks `decode.name` + `rate_ms` on `rx.batch`. See
+[docs/smoke.md](../docs/smoke.md).

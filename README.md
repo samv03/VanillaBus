@@ -128,7 +128,30 @@ private 0700 `mkstemp` directory — not a world-writable predictable `/tmp` pat
 
 See [docs/preload.md](docs/preload.md) for the API shape and
 [docs/packaging.md](docs/packaging.md) for Ubuntu 22.04/24.04 Electron deps,
-`npm run build`, and “never Electron as root.”
+`npm run build` / `npm run dist` (AppImage + `.deb`), and “never Electron
+as root.”
+
+## Linux packages (AppImage / `.deb`)
+
+Ubuntu users can install a build instead of `npm run build` && `electron .`:
+
+```bash
+npm ci
+npm run dist                 # electron-vite build + electron-builder (AppImage + deb)
+# artifacts: dist/VanillaBus-*.AppImage  dist/vanillabus_*.deb  dist/linux-unpacked/
+```
+
+The package **bundles `engine/` outside asar** and still spawns host
+`python3 -m can_engine`. Install `python-can` and `cantools` in a user
+venv (see [docs/packaging.md](docs/packaging.md)). **Never run the
+AppImage / `vanillabus` as root** and do not `setcap` the Electron
+binary. `can-utils` / vcan / host libs stay as documented.
+
+```bash
+python3 -m venv ~/.local/share/vanillabus/venv
+~/.local/share/vanillabus/venv/bin/pip install 'python-can>=4.3' 'cantools>=39.4'
+./dist/VanillaBus-0.1.0-x86_64.AppImage    # not sudo
+```
 
 On relaunch the header shows **Remembered** bus chips and the last DBC
 path. Click **Connect** / **Load** when the iface is UP. Cyclic jobs come
@@ -162,9 +185,10 @@ npm run test:tx-bridge                # T12/T13 hex/period helpers + supervisor 
 npm run test:multibus                 # T14 two buses + DBC isolation (python + tsx)
 npm run test:harden                   # T16 backpressure / OOM / IPC / restart
 npm run test:persist                  # T17 userData store round-trip (offline)
+npm run test:engine-paths             # packaged vs cwd engine/python resolution
+npm run test:electron-pin             # offline Electron 37.x pin vs lockfile
 npm run test:smoke                    # T10 M1 Trace+DBC+rate + N2 (tsx)
 # or: npm run test:m1                 # test:smoke + Electron/Xvfb stub
-npm run test:electron-pin             # offline Electron 37.x pin vs lockfile
 ```
 
 `test:shell` runs `node scripts/test-shell-tabs.mjs` (assert + `shared/appTabs.mjs`,
@@ -398,6 +422,7 @@ sudo ./scripts/setup-vcan.sh          # vcan0 + vcan1 UP for bus.open + multi-bu
 
 ```
 package.json
+electron-builder.yml    # Linux AppImage + deb; extraResources = engine/ (outside asar)
 electron/main/          # window + engine spawn / UDS client + ipc-bridge
 electron/preload/       # window.vanillabus (status + bus + DBC + TX + persist + onRxBatch)
 electron/renderer/      # React shell + Trace + Graph + Transmit + persist restore
@@ -413,7 +438,7 @@ fixtures/dbc/           # sample + mux + invalid DBC (engine-side only)
 fixtures/golden/        # unpack + pack vectors for sample + mux
 docs/architecture.md
 docs/hardening.md       # T16 backpressure, OOM caps, IPC, restart
-docs/packaging.md       # Ubuntu 22.04/24.04 run/build, Electron 37.x pin
+docs/packaging.md       # Ubuntu 22.04/24.04 run/build/AppImage/.deb — never Electron as root
 docs/ipc.md
 docs/preload.md
 docs/privileges.md      # pre-UP, pkexec, setcap — never Electron as root

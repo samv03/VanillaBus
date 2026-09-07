@@ -1,5 +1,4 @@
-import { spawn, type ChildProcess } from 'node:child_process'
-import { delimiter, join } from 'node:path'
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process'
 import {
   parseDbcCatalog,
   type BusCloseOk,
@@ -20,17 +19,37 @@ import {
   type TxSendRequest
 } from '../../shared/engine'
 import { EngineClient, EngineRequestError } from './engineClient'
+import { looksLikeEngineRoot, planEngineLaunch } from './enginePaths'
 import { createIpcSocketPath } from './ipcPath'
 
 const RESTART_DELAY_MS = 750
 const CONNECT_ATTEMPTS = 40
 const CONNECT_GAP_MS = 100
+const PYTHON_PROBE_MS = 8000
 
 export type StatusListener = (status: EngineStatus) => void
 export type RxBatchListener = (batch: RxBatch) => void
 
-function repoRoot(): string {
-  return process.cwd()
+function probePythonEngineDeps(pythonBin: string): void {
+  const result = spawnSync(pythonBin, ['-c', 'import can, cantools'], {
+    encoding: 'utf8',
+    timeout: PYTHON_PROBE_MS
+  })
+  if (result.error) {
+    console.error(
+      `[vanillabus] cannot exec ${pythonBin}: ${result.error.message}. Packaged VanillaBus uses host python3 (docs/packaging.md).`
+    )
+    return
+  }
+  if (result.status !== 0) {
+    const detail = (result.stderr || result.stdout || `exit ${String(result.status)}`).trim()
+    console.error(
+      `[vanillabus] python engine deps missing (${pythonBin}): ${detail}`
+    )
+    console.error(
+      '[vanillabus] Install python-can and cantools into a user venv or with pip; never sudo the Electron binary. See docs/packaging.md.'
+    )
+  }
 }
 
 function sleep(ms: number): Promise<void> {
@@ -189,15 +208,22 @@ export class EngineSupervisor {
       return
     }
 
-    const root = repoRoot()
-    const engineRoot = join(root, 'engine')
-    const pythonPath = [engineRoot, process.env.PYTHONPATH].filter(Boolean).join(delimiter)
+    const plan = planEngineLaunch()
+    if (!looksLikeEngineRoot(plan.engineRoot)) {
+      console.error(
+        `[vanillabus] engine sources not found at ${plan.engineRoot}. Packaged builds copy engine/ to resources/engine (outside asar). See docs/packaging.md.`
+      )
+    }
+    probePythonEngineDeps(plan.pythonBin)
+
     const args = ['-m', 'can_engine', '--ipc', this.ipcPath]
 
-    console.log(`[vanillabus] spawning engine --ipc ${this.ipcPath}`)
-    const child = spawn('python3', args, {
-      cwd: root,
-      env: { ...process.env, PYTHONPATH: pythonPath },
+    console.log(
+      `[vanillabus] spawning engine --ipc ${this.ipcPath} python=${plan.pythonBin} root=${plan.engineRoot} packaged=${plan.packaged}`
+    )
+    const child = spawn(plan.pythonBin, args, {
+      cwd: plan.cwd,
+      env: plan.env,
       stdio: ['ignore', 'pipe', 'pipe']
     })
     this.child = child

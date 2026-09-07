@@ -1,0 +1,59 @@
+# Linux packages for Ubuntu 22.04 / 24.04. GPL-3.0-or-later — no proprietary
+# blobs, vendor SDKs, or auto-update feeds. Electron version comes from
+# package.json (pin 37.10.3); do not npm audit fix --force.
+appId: io.github.samv03.vanillabus
+productName: VanillaBus
+copyright: Copyright (C) VanillaBus contributors
+
+directories:
+  output: dist
+
+# Vite output only. Renderer deps are bundled into out/renderer; main/preload
+# use Node + Electron. Production node_modules are not required at runtime.
+files:
+  - out/**/*
+  - package.json
+
+# Python engine must stay outside asar so python3 can import can_engine.
+extraResources:
+  - from: engine
+    to: engine
+    filter:
+      - '**/*'
+      - '!**/*.pyc'
+      - '!**/__pycache__/**'
+      - '!**/*.egg-info/**'
+      - '!**/.venv/**'
+      - '!**/venv/**'
+
+asar: true
+npmRebuild: false
+
+linux:
+  target:
+    - AppImage
+    - deb
+  executableName: vanillabus
+  category: Development
+  maintainer: Sam Vinella
+  synopsis: SocketCAN-first desktop bus monitor
+  description: |
+    VanillaBus is a SocketCAN-first desktop bus monitor.
+    The Electron UI talks to a bundled Python engine over a Unix socket.
+    Host python3 plus python-can and cantools are still required; see docs/packaging.md.
+    Never run the packaged app as root. Do not setcap the Electron binary.
+  desktop:
+    entry:
+      Name: VanillaBus
+      Comment: SocketCAN-first desktop bus monitor
+      Terminal: false
+      Type: Application
+      Categories: Development;Engineering;
+
+appImage:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+deb:
+  artifactName: ${name}_${version}_${arch}.${ext}
+  depends:
+    - python3

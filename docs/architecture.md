@@ -14,6 +14,7 @@ VanillaBus is a SocketCAN-first desktop bus monitor.
 ┌──────────────────▼──────────────────────────┐
 │ vanillabus-engine  (python3 -m can_engine)  │
 │  can_engine/  python-can SocketCAN + cantools DBC unpack
+│  packaged: resources/engine (extraResources, outside asar)
 └─────────────────────────────────────────────┘
 ```
 
@@ -29,7 +30,9 @@ VanillaBus is a SocketCAN-first desktop bus monitor.
   must not talk to SocketCAN or parse DBC.
 - **Main** owns the window, the Unix-socket path, the UI persist JSON
   (`vanillabus-ui.json` under userData), and the engine supervisor
-  (spawn, log disconnect, respawn, request/response). T16 hardens
+  (spawn, log disconnect, respawn, request/response). Packaged builds
+  resolve `resources/engine` and host `python3` — see
+  [packaging.md](packaging.md). T16 hardens
   backpressure, OOM caps, IPC framing, and restart under load — see
   [hardening.md](hardening.md).
 - **Preload** exposes `window.vanillabus`: engine status plus `listBuses` /

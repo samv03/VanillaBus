@@ -31,6 +31,12 @@ python3 -m pip install -e engine/
 
 This pulls in `python-can` and `cantools`.
 
+Packaged AppImage / `.deb` builds copy this tree to `resources/engine`
+(outside asar). Electron sets `PYTHONPATH` and still runs host `python3`
+(or `~/.local/share/vanillabus/venv`). Do **not** pip-install the AppImage
+mount — it disappears when the image unmounts. See
+[docs/packaging.md](../docs/packaging.md).
+
 ## Run
 
 ```bash

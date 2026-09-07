@@ -2,9 +2,15 @@
   "name": "vanillabus",
   "productName": "VanillaBus",
   "version": "0.1.0",
-    "description": "SocketCAN-first desktop bus monitor (T17 persist + UX polish).",
+  "description": "SocketCAN-first desktop bus monitor (T17 persist + UX polish).",
   "license": "GPL-3.0-or-later",
   "author": "Sam Vinella",
+  "homepage": "https://github.com/samv03/VanillaBus",
+  "desktopName": "io.github.samv03.vanillabus",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samv03/VanillaBus.git"
+  },
   "private": true,
   "main": "./out/main/index.js",
   "engines": {
@@ -13,6 +19,9 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "dist": "electron-vite build && electron-builder --linux --publish never",
+    "dist:linux": "electron-vite build && electron-builder --linux AppImage deb --publish never",
+    "dist:dir": "electron-vite build && electron-builder --linux dir --publish never",
     "preview": "electron-vite preview",
     "typecheck": "tsc -b --pretty false",
     "test:ipc": "python3 scripts/test-ipc-hello.py",
@@ -34,6 +43,8 @@
     "test:multibus": "python3 scripts/test-multibus.py && tsx --test scripts/test-multibus.ts",
     "test:smoke": "tsx --test scripts/test-smoke.ts",
     "test:smoke:electron": "bash scripts/smoke-electron.sh",
+    "test:smoke:packaged": "bash scripts/smoke-packaged.sh",
+    "test:engine-paths": "tsx --test scripts/test-engine-paths.ts",
     "test:electron-pin": "bash scripts/check-electron-pin.sh",
     "test:m1": "npm run test:smoke && npm run test:smoke:electron",
     "test:harden": "python3 scripts/test-harden.py && tsx --test scripts/test-harden.ts",
@@ -51,6 +62,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
     "electron": "37.10.3",
+    "electron-builder": "^26.13.0",
     "electron-vite": "^5.0.0",
     "tsx": "^4.20.5",
     "typescript": "^5.8.3",

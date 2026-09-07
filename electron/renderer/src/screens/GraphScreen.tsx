@@ -9,9 +9,10 @@ import type { GraphModel } from '../graph/useGraphModel'
 type GraphScreenProps = {
   readonly model: GraphModel
   readonly activeBusName: string | null
+  readonly hasDbc?: boolean
 }
 
-export function GraphScreen({ model, activeBusName }: GraphScreenProps): ReactElement {
+export function GraphScreen({ model, activeBusName, hasDbc = false }: GraphScreenProps): ReactElement {
   const rows = useMemo(
     () => model.store.legendRows(),
     [model.store, model.generation, model.selected]
@@ -52,6 +53,13 @@ export function GraphScreen({ model, activeBusName }: GraphScreenProps): ReactEl
           selected={model.selected}
           paused={model.paused}
           hz={model.hz}
+          emptyHint={
+            !hasDbc
+              ? 'Load a DBC on the header-selected bus, then check signals. Last window and selected names are remembered.'
+              : model.selected.length === 0
+                ? 'Check one or more DBC signals on the left to plot. Last-session selections restore after Load.'
+                : undefined
+          }
         />
         <GraphLegend rows={rows} />
         <GraphFooter

@@ -1,6 +1,12 @@
-import type { ReactElement } from 'react'
+import type { FormEvent, KeyboardEvent, ReactElement } from 'react'
 import type { BusInterface, BusListWarning } from '../../../../shared/engine'
-import { busBlacklistWarning, formatBusOptionLabel, formatVendorHint } from '../../../../shared/multiBus'
+import { busBlacklistWarning, formatVendorHint } from '../../../../shared/multiBus'
+import {
+  formatRememberedBusLabel,
+  isRememberedName,
+  mergeRememberedNames,
+  type PersistedBusHint
+} from '../../../../shared/persist'
 import { formatStatus, type BusActionStatus, type OpenedBus, type OpenedDbc } from './types'
 
 const DBC_PRESETS = ['fixtures/dbc/sample.dbc', 'fixtures/dbc/mux.dbc'] as const
@@ -10,6 +16,7 @@ type SharedHeaderProps = {
   readonly interfaces: readonly BusInterface[]
   readonly listWarnings?: readonly BusListWarning[]
   readonly opened: readonly OpenedBus[]
+  readonly remembered?: readonly PersistedBusHint[]
   readonly selectedBus: string
   readonly onSelectBus: (name: string) => void
   readonly busConnected: boolean
@@ -22,6 +29,7 @@ type SharedHeaderProps = {
   readonly onLoadDbc: () => void
   readonly loadedDbc: OpenedDbc | null
   readonly status: BusActionStatus
+  readonly dropped?: number
 }
 
 export function SharedHeader({
@@ -29,6 +37,7 @@ export function SharedHeader({
   interfaces,
   listWarnings,
   opened,
+  remembered = [],
   selectedBus,
   onSelectBus,
   busConnected,
@@ -40,22 +49,41 @@ export function SharedHeader({
   onDbcPathChange,
   onLoadDbc,
   loadedDbc,
-  status
+  status,
+  dropped = 0
 }: SharedHeaderProps): ReactElement {
   const names = interfaces.map((iface) => iface.name)
-  const extra = opened.map((item) => item.name).filter((name) => !names.includes(name))
-  const options =
-    names.includes(selectedBus) || selectedBus.length === 0
-      ? [...names, ...extra]
-      : [selectedBus, ...names, ...extra.filter((name) => name !== selectedBus)]
-  const uniqueOptions = [...new Set(options)]
+  const extra = opened.map((item) => item.name)
+  const uniqueOptions = mergeRememberedNames([...names, ...extra], remembered, selectedBus)
   const selectedMeta = interfaces.find((iface) => iface.name === selectedBus)
   const vendorHint = formatVendorHint(selectedMeta)
   const blacklistWarning = busBlacklistWarning(interfaces, listWarnings)
   const openHint =
     opened.length === 0
-      ? 'No bus open'
+      ? remembered.length > 0
+        ? `No bus open · remembered ${remembered.map((item) => item.name).join(', ')}`
+        : 'No bus open'
       : `Open: ${opened.map((item) => item.name).join(', ')} · active ${selectedBus || '—'}`
+  const connectDisabled = !engineConnected || selectedBus.length === 0 || busConnected || connecting
+  const connectTitle = !engineConnected
+    ? 'Wait for Engine Connected'
+    : busConnected
+      ? `${selectedBus} is already open`
+      : selectedBus.length === 0
+        ? 'Select a bus first'
+        : `Open ${selectedBus}. Does not bring a down iface up.`
+
+  function onDbcKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      onLoadDbc()
+    }
+  }
+
+  function onDbcSubmit(event: FormEvent): void {
+    event.preventDefault()
+    onLoadDbc()
+  }
 
   return (
     <header className="shared-header">
@@ -78,7 +106,12 @@ export function SharedHeader({
                   const open = opened.some((item) => item.name === name)
                   return (
                     <option key={name} value={name}>
-                      {formatBusOptionLabel(name, iface, open)}
+                      {formatRememberedBusLabel(
+                        name,
+                        iface,
+                        open,
+                        !open && isRememberedName(remembered, name)
+                      )}
                     </option>
                   )
                 })
@@ -87,12 +120,20 @@ export function SharedHeader({
           </label>
           <button
             type="button"
-            disabled={!engineConnected || selectedBus.length === 0 || busConnected || connecting}
+            disabled={connectDisabled}
             onClick={onConnect}
+            title={connectTitle}
+            aria-label={connecting ? 'Connecting' : 'Connect bus'}
           >
             {connecting ? 'Connecting…' : 'Connect'}
           </button>
-          <button type="button" disabled={!engineConnected || !busConnected} onClick={onDisconnect}>
+          <button
+            type="button"
+            disabled={!engineConnected || !busConnected}
+            onClick={onDisconnect}
+            title={busConnected ? `Close ${selectedBus}` : 'No open bus to disconnect'}
+            aria-label="Disconnect bus"
+          >
             Disconnect
           </button>
           <StatusPill
@@ -112,7 +153,7 @@ export function SharedHeader({
           ) : null}
         </div>
 
-        <div className="header-group header-group-dbc">
+        <form className="header-group header-group-dbc" onSubmit={onDbcSubmit}>
           <label className="header-field header-field-wide">
             <span>DBC path</span>
             <input
@@ -122,7 +163,9 @@ export function SharedHeader({
               spellCheck={false}
               disabled={!engineConnected}
               onChange={(event) => onDbcPathChange(event.target.value)}
+              onKeyDown={onDbcKeyDown}
               aria-label="DBC path"
+              title="Remembered per bus. Enter or Load — does not parse DBC in the UI."
             />
             <datalist id="dbc-presets">
               {DBC_PRESETS.map((path) => (
@@ -131,9 +174,14 @@ export function SharedHeader({
             </datalist>
           </label>
           <button
-            type="button"
+            type="submit"
             disabled={!engineConnected || !busConnected || dbcPath.trim().length === 0}
-            onClick={onLoadDbc}
+            title={
+              !busConnected
+                ? 'Connect a bus before loading a DBC'
+                : 'Load this DBC on the active bus'
+            }
+            aria-label="Load DBC"
           >
             Load
           </button>
@@ -142,9 +190,11 @@ export function SharedHeader({
               {loadedDbc.path} · {loadedDbc.messageCount} msgs
             </span>
           ) : (
-            <span className="header-dbc-meta muted">No DBC loaded</span>
+            <span className="header-dbc-meta muted">
+              {dbcPath.trim().length > 0 ? 'DBC path remembered — Load after Connect' : 'No DBC loaded'}
+            </span>
           )}
-        </div>
+        </form>
 
         <div className="header-group header-group-engine">
           <StatusPill
@@ -152,8 +202,53 @@ export function SharedHeader({
             okLabel="Engine Connected"
             offLabel="Engine Disconnected"
           />
+          {dropped > 0 ? (
+            <span
+              className="header-drop-pill"
+              title="Engine RX queue + Trace ring overflow (T16 drop-oldest)"
+              aria-label={`Dropped ${dropped} frames`}
+            >
+              dropped {dropped.toLocaleString()}
+            </span>
+          ) : null}
         </div>
       </div>
+      {remembered.length > 0 && opened.length === 0 ? (
+        <div className="header-remembered" role="status">
+          <span className="header-open-label">Remembered</span>
+          {remembered.map((item) => {
+            const dbcName = item.dbcPath ? item.dbcPath.split(/[\\/]/).pop() : null
+            const listed = interfaces.find((iface) => iface.name === item.name)
+            return (
+              <button
+                key={item.name}
+                type="button"
+                className="header-open-chip"
+                onClick={() => onSelectBus(item.name)}
+                title={
+                  listed
+                    ? `${item.name} is ${listed.state}. Connect does not auto-up a down iface.`
+                    : `${item.name} is remembered and not listed. Connect after the iface is UP.`
+                }
+              >
+                <span className="mono">{item.name}</span>
+                {listed ? (
+                  <span className={listed.state === 'up' ? 'header-open-chip-dbc' : 'header-remembered-down'}>
+                    {' '}
+                    · {listed.state}
+                  </span>
+                ) : (
+                  <span className="header-remembered-down"> · not listed</span>
+                )}
+                {dbcName ? <span className="header-open-chip-dbc"> · {dbcName}</span> : null}
+              </button>
+            )
+          })}
+          <span className="header-open-hint muted">
+            Last session only — VanillaBus does not auto-open buses or start cyclic TX.
+          </span>
+        </div>
+      ) : null}
       {opened.length > 0 ? (
         <div className="header-open-buses" role="group" aria-label="Open buses">
           <span className="header-open-label">Open</span>

@@ -10,6 +10,7 @@ import {
   type EngineErrorPayload,
   type EngineInfo,
   type EngineStatus,
+  type PersistSnapshot,
   type RxBatch,
   type SignalValue,
   type TxCyclicStartRequest,
@@ -20,6 +21,8 @@ import {
 } from '../../shared/engine'
 import { EngineRequestError } from './engineClient'
 import type { EngineSupervisor } from './engineSupervisor'
+import { sanitizePersist } from '../../shared/persist'
+import type { UserStore } from './userStore'
 
 /** IPC channels for the preload context bridge. Renderer never sees the UDS. */
 export const VANILLABUS_IPC = {
@@ -33,7 +36,9 @@ export const VANILLABUS_IPC = {
   txSend: 'vanillabus:tx-send',
   txCyclicStart: 'vanillabus:tx-cyclic-start',
   txCyclicStop: 'vanillabus:tx-cyclic-stop',
-  rxBatch: 'vanillabus:rx-batch'
+  rxBatch: 'vanillabus:rx-batch',
+  persistGet: 'vanillabus:persist-get',
+  persistSet: 'vanillabus:persist-set'
 } as const
 
 function parseOptionalBool(value: unknown): boolean | undefined {
@@ -133,7 +138,7 @@ function broadcast(channel: string, payload: unknown): void {
  * Map engine-host status, bus RPCs, and DBC load/clear onto the preload API.
  * Hello / heartbeat / respawn stay in the supervisor.
  */
-export function registerIpcBridge(supervisor: EngineSupervisor): void {
+export function registerIpcBridge(supervisor: EngineSupervisor, store: UserStore): void {
   ipcMain.handle(
     VANILLABUS_IPC.engineInfo,
     (): EngineInfo => engineInfoFromStatus(supervisor.getStatus())
@@ -250,6 +255,12 @@ export function registerIpcBridge(supervisor: EngineSupervisor): void {
       }
     }
   )
+
+  ipcMain.handle(VANILLABUS_IPC.persistGet, (): PersistSnapshot => store.load())
+
+  ipcMain.handle(VANILLABUS_IPC.persistSet, (_event, raw: unknown): PersistSnapshot => {
+    return store.save(sanitizePersist(raw))
+  })
 
   supervisor.onRxBatch((batch: RxBatch) => {
     broadcast(VANILLABUS_IPC.rxBatch, batch)

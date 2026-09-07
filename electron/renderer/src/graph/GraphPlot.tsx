@@ -10,6 +10,7 @@ type GraphPlotProps = {
   readonly selected: readonly string[]
   readonly paused: boolean
   readonly hz: number
+  readonly emptyHint?: string
 }
 
 const AXIS_STROKE = '#8b949e'
@@ -67,7 +68,14 @@ function buildOptions(
   }
 }
 
-export function GraphPlot({ store, generation, selected, paused, hz }: GraphPlotProps): ReactElement {
+export function GraphPlot({
+  store,
+  generation,
+  selected,
+  paused,
+  hz,
+  emptyHint
+}: GraphPlotProps): ReactElement {
   const wrapRef = useRef<HTMLDivElement>(null)
   const plotRef = useRef<uPlot | null>(null)
   const pausedRef = useRef(paused)
@@ -127,7 +135,9 @@ export function GraphPlot({ store, generation, selected, paused, hz }: GraphPlot
   if (selected.length === 0) {
     return (
       <div className="graph-plot graph-plot-empty">
-        <p className="muted">Select DBC signals on the left to plot live series.</p>
+        <p className="muted">
+          {emptyHint ?? 'Select DBC signals on the left to plot live series.'}
+        </p>
       </div>
     )
   }

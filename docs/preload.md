@@ -25,6 +25,8 @@ window.vanillabus = {
   startCyclic(request): Promise<TxCyclicStartResult>
   stopCyclic(jobId): Promise<TxCyclicStopResult>
   onRxBatch(listener): Unsubscribe       // { frames, dropped }
+  getPersist(): Promise<PersistSnapshot> // T17 UI prefs (userData JSON)
+  setPersist(snapshot): Promise<PersistSnapshot>
 }
 ```
 
@@ -76,6 +78,8 @@ from `rx.batch` in an expandable row.
 | `vanillabus:tx-cyclic-start` | invoke | `TxCyclicStartResult` |
 | `vanillabus:tx-cyclic-stop` | invoke | `TxCyclicStopResult` |
 | `vanillabus:rx-batch` | event | `RxBatch` (`frames`, `dropped`) |
+| `vanillabus:persist-get` | invoke | `PersistSnapshot` |
+| `vanillabus:persist-set` | invoke | `PersistSnapshot` |
 
 T2 engine IPC (`engine.hello`, `engine.heartbeat`, respawn) is unchanged.
 `rx.batch` still carries T5 frames, T6 `rate_ms`, and optional T7 `decode`.
@@ -163,6 +167,18 @@ Automated: `npm run test:tx` (T12 raw + cyclic), `npm run test:tx-dbc`
 
 Automated: `npm run test:graph` (synthetic decimation / pause / window;
 live SKIP if vcan0 is not UP).
+
+## Persist (T17)
+
+`getPersist` / `setPersist` read and write `vanillabus-ui.json` in Electron
+`userData` (override with `VANILLABUS_STORE_PATH`). The snapshot is buses +
+per-bus DBC paths, Trace filter/pause/scroll-lock, Graph window + selected
+signal names, Transmit drafts, and cyclic **definitions**. Main sanitizes
+on the way in. The renderer restores hints on launch and does **not** call
+`openBus` or `startCyclic` by itself.
+
+Automated: `npm run test:persist` (offline store round-trip). See
+[packaging.md](packaging.md).
 
 ## Multi-bus (T14)
 

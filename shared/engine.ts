@@ -6,6 +6,8 @@
  * pure helpers only — no Node, SocketCAN, or DBC parse.
  */
 
+import type { PersistSnapshot } from './persist'
+
 export type EngineHello = {
   readonly name: string
   readonly version: string
@@ -38,6 +40,8 @@ export type EngineConnectionEvent = {
 }
 
 export type Unsubscribe = () => void
+
+export type { PersistSnapshot }
 
 export type EngineErrorPayload = {
   readonly code: string
@@ -226,6 +230,8 @@ export type VanillaBusApi = {
   startCyclic: (request: TxCyclicStartRequest) => Promise<TxCyclicStartResult>
   stopCyclic: (jobId: string) => Promise<TxCyclicStopResult>
   onRxBatch: (listener: (batch: RxBatch) => void) => Unsubscribe
+  getPersist: () => Promise<PersistSnapshot>
+  setPersist: (snapshot: PersistSnapshot) => Promise<PersistSnapshot>
 }
 
 export const DISCONNECTED_ENGINE_INFO: EngineInfo = {

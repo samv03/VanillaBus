@@ -84,7 +84,9 @@ export function TraceToolbar({
 
       <p className="trace-toolbar-meta mono" aria-live="polite">
         {filter.trim().length > 0 ? `${filteredCount}/${size}` : size} / {capacity}
-        {dropped > 0 ? ` · dropped ${dropped}` : ''}
+        {dropped > 0 ? (
+          <span className="trace-dropped">{` · dropped ${dropped.toLocaleString()}`}</span>
+        ) : null}
         {paused ? ' · paused' : ''}
       </p>
     </div>

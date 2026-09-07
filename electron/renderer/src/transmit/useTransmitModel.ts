@@ -7,6 +7,12 @@ import {
   type TxSendRequest,
   type VanillaBusApi
 } from '../../../../shared/engine'
+import {
+  cyclicJobDefinitionId,
+  type PersistedCyclicJob,
+  type PersistedDbcDraft,
+  type PersistedRawDraft
+} from '../../../../shared/persist'
 
 export type CyclicJobType = 'Raw' | 'DBC'
 export type CyclicJobStatus = 'Running' | 'Stopped'
@@ -90,6 +96,11 @@ export type TransmitModel = {
   noteBatch: (batch: RxBatch) => void
   markBusClosed: (busId: string) => void
   reset: () => void
+  hydratePrefs: (
+    raw: PersistedRawDraft,
+    dbc: PersistedDbcDraft,
+    jobs: readonly PersistedCyclicJob[]
+  ) => void
 }
 
 const EMPTY_STATS: TransmitStats = { txCount: 0, errors: 0, lastTx: null }
@@ -235,13 +246,46 @@ export function useTransmitModel(api: VanillaBusApi | undefined): TransmitModel 
   }, [])
 
   const reset = useCallback((): void => {
-    setDraft(DEFAULT_RAW_DRAFT)
-    setDbcDraft(DEFAULT_DBC_DRAFT)
-    setJobs([])
+    setJobs((current) =>
+      current.map((job, index) => ({
+        ...job,
+        jobId: job.status === 'Running' ? cyclicJobDefinitionId(index) : job.jobId,
+        status: 'Stopped' as const
+      }))
+    )
     setStats(EMPTY_STATS)
     setLastRawJobId(null)
     setLastDbcJobId(null)
   }, [])
+
+  const hydratePrefs = useCallback(
+    (raw: PersistedRawDraft, dbc: PersistedDbcDraft, jobs: readonly PersistedCyclicJob[]): void => {
+      setDraft({ ...raw })
+      setDbcDraft({
+        message: dbc.message,
+        values: { ...dbc.values },
+        periodMs: dbc.periodMs
+      })
+      setJobs(
+        jobs.map((job, index) => ({
+          jobId: cyclicJobDefinitionId(index),
+          type: job.type,
+          busId: '',
+          ifName: job.ifName,
+          canId: job.canId,
+          isEff: job.isEff,
+          data: job.data,
+          message: job.message,
+          periodMs: job.periodMs,
+          status: 'Stopped'
+        }))
+      )
+      setStats(EMPTY_STATS)
+      setLastRawJobId(null)
+      setLastDbcJobId(null)
+    },
+    []
+  )
 
   return {
     draft,
@@ -260,6 +304,7 @@ export function useTransmitModel(api: VanillaBusApi | undefined): TransmitModel 
     stopLastDbc,
     noteBatch,
     markBusClosed,
-    reset
+    reset,
+    hydratePrefs
   }
 }

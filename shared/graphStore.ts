@@ -253,6 +253,16 @@ export class GraphStore {
     this.clearSamples()
   }
 
+  /** Drop live samples / catalog after engine loss; keep window + selected. */
+  resetLive(): void {
+    this.engineDropped = 0
+    this.activeBusId = null
+    this.series.clear()
+    this.catalog.clear()
+    this.nowUs = 0
+    this.clearSamples()
+  }
+
   plotNowUs(): number {
     if (this.paused && this.pausedNowUs !== null) {
       return this.pausedNowUs

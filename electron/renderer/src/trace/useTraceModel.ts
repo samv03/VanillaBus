@@ -23,6 +23,7 @@ export type TraceModel = {
   appendBatch: (batch: RxBatch) => void
   clear: () => void
   reset: () => void
+  hydratePrefs: (prefs: { readonly filter: string; readonly paused: boolean; readonly scrollLock: boolean }) => void
 }
 
 export function useTraceModel(): TraceModel {
@@ -81,8 +82,6 @@ export function useTraceModel(): TraceModel {
   }, [publish])
 
   const reset = useCallback((): void => {
-    pausedRef.current = false
-    setPausedState(false)
     ringRef.current.clear()
     firstPaintRef.current = null
     setUiDropped(0)
@@ -91,6 +90,16 @@ export function useTraceModel(): TraceModel {
     setFirstPaintMs(null)
     publish()
   }, [publish])
+
+  const hydratePrefs = useCallback(
+    (prefs: { readonly filter: string; readonly paused: boolean; readonly scrollLock: boolean }): void => {
+      pausedRef.current = prefs.paused
+      setPausedState(prefs.paused)
+      setScrollLock(prefs.scrollLock)
+      setFilter(prefs.filter)
+    },
+    []
+  )
 
   const setPaused = useCallback((next: boolean): void => {
     pausedRef.current = next
@@ -127,6 +136,7 @@ export function useTraceModel(): TraceModel {
     toggleExpanded,
     appendBatch,
     clear,
-    reset
+    reset,
+    hydratePrefs
   }
 }

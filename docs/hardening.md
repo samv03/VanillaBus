@@ -1,7 +1,7 @@
 # VanillaBus hardening (T16)
 
 Backpressure, memory bounds, IPC safety, and engine restart under load.
-Polish / persist is T17 and is out of scope here.
+Polish / persist is T17 (`npm run test:persist`, [packaging.md](packaging.md)).
 
 ## RX backpressure
 
@@ -58,8 +58,9 @@ Connected. After hello, `bus.list` / reopen / further `rx.batch` work
 without a hung request.
 
 Open-bus state lives in the engine process, so a restart clears opens,
-DBC bindings, and cyclic TX. The shell reconnects; the user (or a later
-persist task) re-opens buses.
+DBC bindings, and cyclic TX. T17 restores remembered iface names and DBC
+paths as header hints; the user clicks Connect / Load. Live cyclic jobs
+do not resume themselves.
 
 ## How to run harden tests
 

@@ -2,6 +2,7 @@ import { app, BrowserWindow } from 'electron'
 import { join } from 'node:path'
 import { EngineSupervisor } from './engineSupervisor'
 import { registerIpcBridge } from './ipc-bridge'
+import { persistFilePath, UserStore } from './userStore'
 
 const WINDOW_TITLE = 'VanillaBus'
 const supervisor = new EngineSupervisor()
@@ -66,8 +67,16 @@ function armSmokeExit(): void {
   }, 50)
 }
 
+function createUserStore(): UserStore {
+  const override = process.env.VANILLABUS_STORE_PATH
+  if (typeof override === 'string' && override.length > 0) {
+    return new UserStore(override)
+  }
+  return new UserStore(persistFilePath(app.getPath('userData')))
+}
+
 app.whenReady().then(() => {
-  registerIpcBridge(supervisor)
+  registerIpcBridge(supervisor, createUserStore())
   supervisor.start()
   createWindow()
   armSmokeExit()

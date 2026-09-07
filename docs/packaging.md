@@ -100,6 +100,12 @@ major-bump Electron. A host previously ended up with **local**
 `npm audit` and bump dependencies deliberately. Prefer `npm ci` so the
 lockfile is what gets installed.
 
+`npm audit` currently lists Electron CVEs whose advertised fix is a
+**semver-major** bump (not a 37.x patch). On this pin it wanted Electron
+**44.x** (`isSemVerMajor: true`) — the same class of drift as the 41.x
+host bump. Leave those advisories until an intentional Electron line
+change.
+
 Confirm:
 
 ```bash

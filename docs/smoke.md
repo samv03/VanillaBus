@@ -79,4 +79,12 @@ npm run build
 npm run test:trace
 npm run test:smoke          # N2 always; live SKIP without vcan
 xvfb-run -a npm run test:smoke:electron   # SKIP without vcan / build
+npm run test:engine-paths                 # packaged spawn path (offline)
+# optional / heavy — not required on every CI job:
+# npm run dist:dir && xvfb-run -a npm run test:smoke:packaged
 ```
+
+`test:smoke:packaged` proves `engine.hello` against `dist/linux-unpacked`
+(host Python + bundled `resources/engine`). It does **not** need vcan.
+SKIP when artifacts or python-can/cantools are missing. Full AppImage +
+`.deb` (`npm run dist`) is documented in [packaging.md](packaging.md).

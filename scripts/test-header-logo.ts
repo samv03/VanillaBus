@@ -35,3 +35,8 @@ test('header mark CSS is an image box, not the blue VB chip', () => {
   assert.doesNotMatch(block, /#1f6feb/)
   assert.doesNotMatch(block, /background:/)
 })
+
+test('vite emits header icons as files (CSP default-src self blocks data:)', () => {
+  const cfg = readFileSync(join(process.cwd(), 'electron.vite.config.ts'), 'utf8')
+  assert.match(cfg, /assetsInlineLimit:\s*0/)
+})

@@ -175,6 +175,7 @@ python3 scripts/test-dbc-unpack.py    # T7 golden unpack + mux + allowlist
 # or: npm run test:dbc
 npm run test:dbc-bridge               # parseFrameEvent decode + supervisor load/clear (tsx)
 npm run test:shell                    # T8 hash tabs — plain node, no tsx / --test
+npm run test:header-logo              # concept-A header mark assets + TopNav img
 npm run test:trace                    # T9 ring / filter / N2 first-paint (tsx)
 npm run test:graph                    # T11 decimation / pause / window (tsx)
 npm run test:tx                       # T12 raw TX + cyclic ±10% (SKIP live if no vcan)

@@ -24,7 +24,9 @@ restart under load (`npm run test:harden`). T17 (**M4 persist**) remembers
 last-used bus names, per-bus DBC paths, Trace/Graph prefs, and Transmit
 drafts / cyclic *definitions* in Electron userData. Restore is a hint —
 the app does **not** auto-open a down iface or restart live TX. See
-[docs/packaging.md](docs/packaging.md) and [docs/hardening.md](docs/hardening.md).
+[docs/packaging.md](docs/packaging.md), [docs/hardening.md](docs/hardening.md),
+and the [final MVP release gate](docs/release-gate.md) (PASS / OPEN vs
+sam-X570 vcan).
 
 After `bus.open`, `vanillabus-engine` recv()s on that python-can bus and
 emits `rx.batch` (≤16–33 ms or ≤500 frames). T6 fills `rate_ms` as the last
@@ -441,6 +443,7 @@ scripts/                # check-host, setup-vcan, hello + bus + rx + dbc + M1 + 
 fixtures/dbc/           # sample + mux + invalid DBC (engine-side only)
 fixtures/golden/        # unpack + pack vectors for sample + mux
 docs/architecture.md
+docs/release-gate.md    # final MVP CoS scorecard (vcan PASS / OPEN items)
 docs/hardening.md       # T16 backpressure, OOM caps, IPC, restart
 docs/packaging.md       # Ubuntu 22.04/24.04 run/build/AppImage/.deb — never Electron as root
 docs/ipc.md

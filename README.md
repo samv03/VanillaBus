@@ -2,7 +2,7 @@
 
 SocketCAN-first desktop bus monitor. T8 is a dedicated app shell: top tabs
 **Trace | Graph | Transmit** and one shared bus/DBC header (dropdown,
-Connect/Disconnect, DBC path + Load, status pills). Tab state is the URL
+Connect/Disconnect, DBC path + Browse + Load, status pills). Tab state is the URL
 hash (`#trace`, `#graph`, `#transmit`); switching tabs does not tear down
 the engine. T9 replaces the T5 RX stub with a **virtualized Trace**
 (`react-virtuoso`): filter, Pause, Clear, scroll lock, expandable DBC
@@ -117,7 +117,8 @@ header shows **Engine Connected**. The same header is on Trace, Graph, and
 Transmit. Use the bus dropdown + **Connect** to call `bus.list` / `bus.open`.
 Connect a second iface the same way (select `vcan1`, Connect). Open-bus
 chips switch the **active** bus for DBC Load and the Graph target.
-**Load** (header DBC path) calls `dbc.load` on the active `busId` only.
+**Browse…** fills the DBC path from a native file picker; **Load** still
+calls `dbc.load` on the active `busId` only (allowlist unchanged).
 Inject frames on either open iface and they appear in the virtualized
 Trace table (Bus column = ifName). The **Graph** tab plots
 numeric `decode.signals` in uPlot (10s/30s/60s window, Pause is independent
@@ -174,6 +175,7 @@ python3 scripts/test-rate-ms.py       # T6 rate_ms median (synthetic + optional 
 python3 scripts/test-dbc-unpack.py    # T7 golden unpack + mux + allowlist
 # or: npm run test:dbc
 npm run test:dbc-bridge               # parseFrameEvent decode + supervisor load/clear (tsx)
+npm run test:dbc-browse               # native DBC picker filters / default path (tsx)
 npm run test:shell                    # T8 hash tabs — plain node, no tsx / --test
 npm run test:header-logo              # concept-A header mark assets + TopNav img
 npm run test:trace                    # T9 ring / filter / N2 first-paint (tsx)
@@ -187,6 +189,7 @@ npm run test:multibus                 # T14 two buses + DBC isolation (python + 
 npm run test:harden                   # T16 backpressure / OOM / IPC / restart
 npm run test:persist                  # T17 userData store round-trip (offline)
 npm run test:engine-paths             # packaged vs cwd engine/python resolution
+npm run test:app-icon                 # Linux/window icon PNG + resolve path (offline)
 npm run test:electron-pin             # offline Electron 37.x pin vs lockfile
 npm run test:smoke                    # T10 M1 Trace+DBC+rate + N2 (tsx)
 # or: npm run test:m1                 # test:smoke + Electron/Xvfb stub

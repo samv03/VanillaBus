@@ -15,7 +15,14 @@ __pycache__/
 .eggs/
 .venv/
 venv/
-build/
+engine/build/
+
+# electron-builder icon masters live in /build (not Python output)
+/build/*
+!/build/icon.png
+!/build/icon-concept-a.png
+!/build/icons/
+!/build/icons/**
 
 # OS / editor
 .DS_Store

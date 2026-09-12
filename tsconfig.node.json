@@ -18,12 +18,14 @@
     "scripts/test-bus-bridge.ts",
     "scripts/test-rx-bridge.ts",
     "scripts/test-dbc-bridge.ts",
+    "scripts/test-dbc-browse.ts",
     "scripts/test-trace.ts",
     "scripts/test-graph.ts",
     "scripts/test-tx-bridge.ts",
     "scripts/test-smoke.ts",
     "scripts/test-persist.ts",
     "scripts/test-engine-paths.ts",
+    "scripts/test-app-icon.ts",
     "electron.vite.config.ts"
   ],
   "references": [{ "path": "./tsconfig.shared.json" }]

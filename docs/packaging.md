@@ -100,9 +100,15 @@ dist/linux-unpacked/vanillabus          # unpacked tree used by test:smoke:packa
 dist/linux-unpacked/resources/engine/   # Python sources, outside asar
 ```
 
-`${arch}` for AppImage is `x86_64` (not `x64`). There is no custom icon yet;
-electron-builder logs that it uses the default Electron icon. That is not a
-vendor SDK. Do not add proprietary icon packs.
+`${arch}` for AppImage is `x86_64` (not `x64`). The Linux / window icon is
+Sam’s concept A (VB monogram with a bus/trace cut) at **`build/icon.png`**
+(1024×1024) plus **`build/icons/`** (`16`–`1024`). `electron-builder.yml`
+sets `directories.buildResources: build`, `linux.icon: icons`, and copies
+the master to `resources/icon.png` so `BrowserWindow` matches in the
+packaged app. `npm run dist` / `dist:linux` / `dist:dir` picks the set up
+on the next package. Rebuild the rasters with
+`python3 scripts/render-app-icon.py` after changing `build/icon-concept-a.png`.
+Do not add proprietary icon packs.
 
 ```bash
 npm ci

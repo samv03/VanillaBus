@@ -26,6 +26,8 @@ type SharedHeaderProps = {
   readonly connecting: boolean
   readonly dbcPath: string
   readonly onDbcPathChange: (path: string) => void
+  readonly onBrowseDbc: () => void
+  readonly browsing?: boolean
   readonly onLoadDbc: () => void
   readonly loadedDbc: OpenedDbc | null
   readonly status: BusActionStatus
@@ -47,6 +49,8 @@ export function SharedHeader({
   connecting,
   dbcPath,
   onDbcPathChange,
+  onBrowseDbc,
+  browsing = false,
   onLoadDbc,
   loadedDbc,
   status,
@@ -146,11 +150,6 @@ export function SharedHeader({
                 : openHint
             }
           />
-          {vendorHint ? (
-            <span className="header-vendor-hint mono muted" title={selectedMeta?.module}>
-              {vendorHint}
-            </span>
-          ) : null}
         </div>
 
         <form className="header-group header-group-dbc" onSubmit={onDbcSubmit}>
@@ -165,7 +164,7 @@ export function SharedHeader({
               onChange={(event) => onDbcPathChange(event.target.value)}
               onKeyDown={onDbcKeyDown}
               aria-label="DBC path"
-              title="Remembered per bus. Enter or Load — does not parse DBC in the UI."
+              title="Remembered per bus. Type a path or Browse — Load still runs allowlist checks."
             />
             <datalist id="dbc-presets">
               {DBC_PRESETS.map((path) => (
@@ -173,6 +172,15 @@ export function SharedHeader({
               ))}
             </datalist>
           </label>
+          <button
+            type="button"
+            disabled={!engineConnected || browsing}
+            onClick={onBrowseDbc}
+            title="Choose a .dbc file. Load still applies the path allowlist."
+            aria-label="Browse for DBC file"
+          >
+            {browsing ? 'Browsing…' : 'Browse…'}
+          </button>
           <button
             type="submit"
             disabled={!engineConnected || !busConnected || dbcPath.trim().length === 0}
@@ -185,23 +193,19 @@ export function SharedHeader({
           >
             Load
           </button>
-          {loadedDbc ? (
-            <span className="header-dbc-meta mono muted">
-              {loadedDbc.path} · {loadedDbc.messageCount} msgs
-            </span>
-          ) : (
-            <span className="header-dbc-meta muted">
-              {dbcPath.trim().length > 0 ? 'DBC path remembered — Load after Connect' : 'No DBC loaded'}
-            </span>
-          )}
         </form>
 
         <div className="header-group header-group-engine">
-          <StatusPill
-            ok={engineConnected}
-            okLabel="Engine Connected"
-            offLabel="Engine Disconnected"
-          />
+          <div className="header-field">
+            <span className="header-field-spacer" aria-hidden="true">
+              Engine
+            </span>
+            <StatusPill
+              ok={engineConnected}
+              okLabel="Engine Connected"
+              offLabel="Engine Disconnected"
+            />
+          </div>
           {dropped > 0 ? (
             <span
               className="header-drop-pill"
@@ -213,67 +217,83 @@ export function SharedHeader({
           ) : null}
         </div>
       </div>
-      {remembered.length > 0 && opened.length === 0 ? (
-        <div className="header-remembered" role="status">
-          <span className="header-open-label">Remembered</span>
-          {remembered.map((item) => {
-            const dbcName = item.dbcPath ? item.dbcPath.split(/[\\/]/).pop() : null
-            const listed = interfaces.find((iface) => iface.name === item.name)
-            return (
-              <button
-                key={item.name}
-                type="button"
-                className="header-open-chip"
-                onClick={() => onSelectBus(item.name)}
-                title={
-                  listed
-                    ? `${item.name} is ${listed.state}. Connect does not auto-up a down iface.`
-                    : `${item.name} is remembered and not listed. Connect after the iface is UP.`
-                }
-              >
-                <span className="mono">{item.name}</span>
-                {listed ? (
-                  <span className={listed.state === 'up' ? 'header-open-chip-dbc' : 'header-remembered-down'}>
-                    {' '}
-                    · {listed.state}
-                  </span>
-                ) : (
-                  <span className="header-remembered-down"> · not listed</span>
-                )}
-                {dbcName ? <span className="header-open-chip-dbc"> · {dbcName}</span> : null}
-              </button>
-            )
-          })}
-          <span className="header-open-hint muted">
-            Last session only — VanillaBus does not auto-open buses or start cyclic TX.
+      <div className="header-secondary">
+        {remembered.length > 0 && opened.length === 0 ? (
+          <div className="header-remembered" role="status">
+            <span className="header-open-label">Remembered</span>
+            {remembered.map((item) => {
+              const dbcName = item.dbcPath ? item.dbcPath.split(/[\\/]/).pop() : null
+              const listed = interfaces.find((iface) => iface.name === item.name)
+              return (
+                <button
+                  key={item.name}
+                  type="button"
+                  className="header-open-chip"
+                  onClick={() => onSelectBus(item.name)}
+                  title={
+                    listed
+                      ? `${item.name} is ${listed.state}. Connect does not auto-up a down iface.`
+                      : `${item.name} is remembered and not listed. Connect after the iface is UP.`
+                  }
+                >
+                  <span className="mono">{item.name}</span>
+                  {listed ? (
+                    <span className={listed.state === 'up' ? 'header-open-chip-dbc' : 'header-remembered-down'}>
+                      {' '}
+                      · {listed.state}
+                    </span>
+                  ) : (
+                    <span className="header-remembered-down"> · not listed</span>
+                  )}
+                  {dbcName ? <span className="header-open-chip-dbc"> · {dbcName}</span> : null}
+                </button>
+              )
+            })}
+            <span className="header-open-hint muted">
+              Last session only — not auto-opened.
+            </span>
+          </div>
+        ) : null}
+        {opened.length > 0 ? (
+          <div className="header-open-buses" role="group" aria-label="Open buses">
+            <span className="header-open-label">Open</span>
+            {opened.map((item) => {
+              const active = item.name === selectedBus
+              const dbcName = item.dbc ? item.dbc.path.split('/').pop() : null
+              return (
+                <button
+                  key={item.busId}
+                  type="button"
+                  className={active ? 'header-open-chip header-open-chip-active' : 'header-open-chip'}
+                  aria-pressed={active}
+                  onClick={() => onSelectBus(item.name)}
+                  title={`${item.name} · busId ${item.busId}${item.dbc ? ` · ${item.dbc.path}` : ''}`}
+                >
+                  <span className="mono">{item.name}</span>
+                  {dbcName ? <span className="header-open-chip-dbc"> · {dbcName}</span> : null}
+                </button>
+              )
+            })}
+            <span className="header-open-hint muted">
+              Select a chip, then Load / TX. Disconnect closes the active bus only.
+            </span>
+          </div>
+        ) : null}
+        {loadedDbc ? (
+          <span className="header-dbc-meta mono muted">
+            {loadedDbc.path} · {loadedDbc.messageCount} msgs
           </span>
-        </div>
-      ) : null}
-      {opened.length > 0 ? (
-        <div className="header-open-buses" role="group" aria-label="Open buses">
-          <span className="header-open-label">Open</span>
-          {opened.map((item) => {
-            const active = item.name === selectedBus
-            const dbcName = item.dbc ? item.dbc.path.split('/').pop() : null
-            return (
-              <button
-                key={item.busId}
-                type="button"
-                className={active ? 'header-open-chip header-open-chip-active' : 'header-open-chip'}
-                aria-pressed={active}
-                onClick={() => onSelectBus(item.name)}
-                title={`${item.name} · busId ${item.busId}${item.dbc ? ` · ${item.dbc.path}` : ''}`}
-              >
-                <span className="mono">{item.name}</span>
-                {dbcName ? <span className="header-open-chip-dbc"> · {dbcName}</span> : null}
-              </button>
-            )
-          })}
-          <span className="header-open-hint muted">
-            Select a chip or the dropdown, then Load / TX. Disconnect closes only the active bus.
+        ) : (
+          <span className="header-dbc-meta muted">
+            {dbcPath.trim().length > 0 ? 'DBC path remembered — Load after Connect' : 'No DBC loaded'}
           </span>
-        </div>
-      ) : null}
+        )}
+        {vendorHint ? (
+          <span className="header-vendor-hint mono muted" title={selectedMeta?.module}>
+            {vendorHint}
+          </span>
+        ) : null}
+      </div>
       {blacklistWarning ? (
         <p className="header-blacklist-warn" role="alert">
           SocketCAN blacklist: {blacklistWarning}

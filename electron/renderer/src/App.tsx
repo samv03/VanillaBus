@@ -47,6 +47,7 @@ export function App(): ReactElement {
   const [busStatus, setBusStatus] = useState<BusActionStatus>({ kind: 'idle' })
   const [listing, setListing] = useState(false)
   const [connecting, setConnecting] = useState(false)
+  const [browsing, setBrowsing] = useState(false)
   const [restored, setRestored] = useState(false)
   const persistRef = useRef<PersistSnapshot>(DEFAULT_PERSIST)
   const wasConnected = useRef(false)
@@ -347,6 +348,21 @@ export function App(): ReactElement {
     await closeNamed(target.busId)
   }
 
+  async function headerBrowseDbc(): Promise<void> {
+    if (!api?.browseDbc) {
+      return
+    }
+    setBrowsing(true)
+    try {
+      const result = await api.browseDbc(dbcPath)
+      if (result.ok) {
+        setDbcPath(result.path)
+      }
+    } finally {
+      setBrowsing(false)
+    }
+  }
+
   async function headerLoadDbc(): Promise<void> {
     const target = headerTargetBus()
     if (!target) {
@@ -384,6 +400,8 @@ export function App(): ReactElement {
           connecting={connecting}
           dbcPath={dbcPath}
           onDbcPathChange={setDbcPath}
+          onBrowseDbc={() => void headerBrowseDbc()}
+          browsing={browsing}
           onLoadDbc={() => void headerLoadDbc()}
           loadedDbc={selectedOpen?.dbc ?? null}
           status={busStatus}

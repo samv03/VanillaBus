@@ -1,10 +1,11 @@
-import { BrowserWindow, ipcMain } from 'electron'
+import { BrowserWindow, dialog, ipcMain } from 'electron'
 import {
   connectionEventFromTransition,
   engineInfoFromStatus,
   type BusCloseResult,
   type BusListResult,
   type BusOpenResult,
+  type DbcBrowseResult,
   type DbcClearResult,
   type DbcLoadResult,
   type EngineErrorPayload,
@@ -19,6 +20,7 @@ import {
   type TxSendRequest,
   type TxSendResult
 } from '../../shared/engine'
+import { dbcBrowseDialogOptions, mapDbcBrowseDialogResult } from './dbcBrowse'
 import { EngineRequestError } from './engineClient'
 import type { EngineSupervisor } from './engineSupervisor'
 import { sanitizePersist } from '../../shared/persist'
@@ -33,6 +35,7 @@ export const VANILLABUS_IPC = {
   busClose: 'vanillabus:bus-close',
   dbcLoad: 'vanillabus:dbc-load',
   dbcClear: 'vanillabus:dbc-clear',
+  dbcBrowse: 'vanillabus:dbc-browse',
   txSend: 'vanillabus:tx-send',
   txCyclicStart: 'vanillabus:tx-cyclic-start',
   txCyclicStop: 'vanillabus:tx-cyclic-stop',
@@ -209,6 +212,28 @@ export function registerIpcBridge(supervisor: EngineSupervisor, store: UserStore
       } catch (error) {
         return { ok: false, error: asError(error) }
       }
+    }
+  )
+
+  ipcMain.handle(
+    VANILLABUS_IPC.dbcBrowse,
+    async (event, currentPath?: unknown): Promise<DbcBrowseResult> => {
+      const pathArg = typeof currentPath === 'string' ? currentPath : undefined
+      const options = dbcBrowseDialogOptions(pathArg)
+      const dialogOptions = {
+        title: options.title,
+        properties: [...options.properties],
+        filters: options.filters.map((filter) => ({
+          name: filter.name,
+          extensions: [...filter.extensions]
+        })),
+        defaultPath: options.defaultPath
+      }
+      const parent = BrowserWindow.fromWebContents(event.sender)
+      const picked = parent
+        ? await dialog.showOpenDialog(parent, dialogOptions)
+        : await dialog.showOpenDialog(dialogOptions)
+      return mapDbcBrowseDialogResult(picked)
     }
   )
 

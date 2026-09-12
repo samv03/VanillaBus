@@ -7,6 +7,11 @@ copyright: Copyright (C) VanillaBus contributors
 
 directories:
   output: dist
+  buildResources: build
+
+# Concept A (VB monogram + bus/trace cut). linux.icon uses the sized set;
+# extraResources copies the 1024 master for BrowserWindow in the packaged app.
+icon: icon.png
 
 # Vite output only. Renderer deps are bundled into out/renderer; main/preload
 # use Node + Electron. Production node_modules are not required at runtime.
@@ -16,6 +21,8 @@ files:
 
 # Python engine must stay outside asar so python3 can import can_engine.
 extraResources:
+  - from: build/icon.png
+    to: icon.png
   - from: engine
     to: engine
     filter:
@@ -30,6 +37,7 @@ asar: true
 npmRebuild: false
 
 linux:
+  icon: icons
   target:
     - AppImage
     - deb

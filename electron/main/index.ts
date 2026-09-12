@@ -1,5 +1,6 @@
 import { app, BrowserWindow } from 'electron'
 import { join } from 'node:path'
+import { resolveWindowIcon } from './appIcon'
 import { EngineSupervisor } from './engineSupervisor'
 import { registerIpcBridge } from './ipc-bridge'
 import { persistFilePath, UserStore } from './userStore'
@@ -16,6 +17,7 @@ function createWindow(): void {
     minWidth: 880,
     minHeight: 600,
     title: WINDOW_TITLE,
+    icon: resolveWindowIcon(),
     show: false,
     autoHideMenuBar: true,
     webPreferences: {

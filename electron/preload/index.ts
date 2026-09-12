@@ -3,6 +3,7 @@ import type {
   BusCloseResult,
   BusListResult,
   BusOpenResult,
+  DbcBrowseResult,
   DbcClearResult,
   DbcLoadResult,
   EngineConnectionEvent,
@@ -25,6 +26,7 @@ const BUS_OPEN_CHANNEL = 'vanillabus:bus-open'
 const BUS_CLOSE_CHANNEL = 'vanillabus:bus-close'
 const DBC_LOAD_CHANNEL = 'vanillabus:dbc-load'
 const DBC_CLEAR_CHANNEL = 'vanillabus:dbc-clear'
+const DBC_BROWSE_CHANNEL = 'vanillabus:dbc-browse'
 const TX_SEND_CHANNEL = 'vanillabus:tx-send'
 const TX_CYCLIC_START_CHANNEL = 'vanillabus:tx-cyclic-start'
 const TX_CYCLIC_STOP_CHANNEL = 'vanillabus:tx-cyclic-stop'
@@ -72,6 +74,8 @@ const api: VanillaBusApi = {
   loadDbc: (busId: string, path: string): Promise<DbcLoadResult> =>
     ipcRenderer.invoke(DBC_LOAD_CHANNEL, busId, path),
   clearDbc: (busId: string): Promise<DbcClearResult> => ipcRenderer.invoke(DBC_CLEAR_CHANNEL, busId),
+  browseDbc: (currentPath?: string): Promise<DbcBrowseResult> =>
+    ipcRenderer.invoke(DBC_BROWSE_CHANNEL, currentPath),
   sendFrame: (request: TxSendRequest): Promise<TxSendResult> =>
     ipcRenderer.invoke(TX_SEND_CHANNEL, request),
   startCyclic: (request: TxCyclicStartRequest): Promise<TxCyclicStartResult> =>

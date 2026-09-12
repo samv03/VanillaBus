@@ -122,6 +122,19 @@ export type DbcClearOk = {
 export type DbcLoadResult = DbcLoadOk | BusCommandError
 export type DbcClearResult = DbcClearOk | BusCommandError
 
+/** Native file picker (`dialog.showOpenDialog`). Cancel is not an error. */
+export type DbcBrowseOk = {
+  readonly ok: true
+  readonly path: string
+}
+
+export type DbcBrowseCancelled = {
+  readonly ok: false
+  readonly cancelled: true
+}
+
+export type DbcBrowseResult = DbcBrowseOk | DbcBrowseCancelled
+
 export type SignalValue = number | string | boolean
 
 /** Raw one-shot TX (T12). data is hex; spaces are stripped by the engine. */
@@ -226,6 +239,8 @@ export type VanillaBusApi = {
   closeBus: (busId: string) => Promise<BusCloseResult>
   loadDbc: (busId: string, path: string) => Promise<DbcLoadResult>
   clearDbc: (busId: string) => Promise<DbcClearResult>
+  /** Opens a native DBC file picker. Does not load; fills the path field. */
+  browseDbc: (currentPath?: string) => Promise<DbcBrowseResult>
   sendFrame: (request: TxSendRequest) => Promise<TxSendResult>
   startCyclic: (request: TxCyclicStartRequest) => Promise<TxCyclicStartResult>
   stopCyclic: (jobId: string) => Promise<TxCyclicStopResult>

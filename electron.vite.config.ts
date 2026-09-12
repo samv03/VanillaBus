@@ -27,6 +27,9 @@ export default defineConfig({
     root: resolve(__dirname, 'electron/renderer'),
     plugins: [react()],
     build: {
+      // Keep header icons as files. A 64px PNG is under Vite's 4kb inline
+      // limit and would become a data: URL, which default-src 'self' blocks.
+      assetsInlineLimit: 0,
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'electron/renderer/index.html')

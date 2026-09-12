@@ -257,7 +257,9 @@ npm run test:persist                  # store round-trip + restore helpers (offl
 ```
 
 Keep `npm run typecheck`, `npm run build`, and the prior suites green
-(`test:harden`, `test:multibus`, `test:smoke`, …).
+(`test:harden`, `test:multibus`, `test:smoke`, …). The operator scorecard
+(which of those are live vcan PASS vs still OPEN, including the M4
+rewrite trigger) is [release-gate.md](release-gate.md).
 
 ## Privilege reminder
 
